@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Race Nutrition Miniapp</title>
 
-  <!-- Telegram WebApp JS API -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
   <style>
     body { font-family: Arial, sans-serif; padding: 16px; }
-    .card { border: 1px solid #ddd; border-radius: 12px; padding: 12px; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
     .muted { opacity: 0.7; }
-    button { padding: 10px 12px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer; }
+    button { padding: 10px 12px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer; margin-right: 8px; margin-top: 8px; }
+    pre { white-space: pre-wrap; word-break: break-word; background: #f6f6f6; padding: 12px; border-radius: 12px; }
   </style>
 </head>
 <body>
@@ -24,93 +24,91 @@
     <hr />
 
     <div class="muted">Статус сервера:</div>
-    <div id="serverStatus">проверяю...</div>
+    <div id="serverStatus">ещё не проверяли</div>
     <hr />
 
-    <div class="muted">initData (для UI, не для доверия):</div>
-    <div id="initData" style="word-break: break-all;"></div>
-    <hr />
+    <button id="checkAuthBtn">Проверить auth</button>
+    <button id="checkCalcBtn">Проверить calc</button>
+  </div>
 
-    <button id="btn">Показать user</button>
-    <pre id="out"></pre>
+  <div class="card">
+    <div class="muted">Ответ сервера:</div>
+    <pre id="output">пока пусто</pre>
   </div>
 
   <script>
-    const statusEl = document.getElementById('status');
-    const serverStatusEl = document.getElementById('serverStatus');
-    const initDataEl = document.getElementById('initData');
-    const outEl = document.getElementById('out');
+    const tg = window.Telegram.WebApp;
+    tg.expand();
 
-    const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+    const statusEl = document.getElementById("status");
+    const serverStatusEl = document.getElementById("serverStatus");
+    const outputEl = document.getElementById("output");
+    const checkAuthBtn = document.getElementById("checkAuthBtn");
+    const checkCalcBtn = document.getElementById("checkCalcBtn");
 
-    const API_BASE = 'https://race-nutrition-miniapp.onrender.com';
-
-    async function checkServerHealth() {
-      try {
-        const r = await fetch(`${API_BASE}/health`);
-        const data = await r.json();
-        serverStatusEl.textContent = 'Сервер отвечает: ' + JSON.stringify(data);
-      } catch (e) {
-        serverStatusEl.textContent = 'Ошибка связи с сервером: ' + e.message;
-      }
-    }
-
-    async function sendInitDataToServer(initData) {
-      try {
-        const r = await fetch(`${API_BASE}/api/auth`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initData }),
-        });
-
-        const data = await r.json();
-        console.log('server /api/auth:', data);
-      } catch (e) {
-        console.log('server /api/auth error:', e);
-      }
-    }
-
-    async function testCalcRoute() {
-      try {
-        const r = await fetch(`${API_BASE}/api/calc-test`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ a: 2, b: 3 }),
-        });
-
-        const data = await r.json();
-        console.log('server /api/calc-test:', data);
-      } catch (e) {
-        console.log('server /api/calc-test error:', e);
-      }
-    }
-
-    checkServerHealth();
-    testCalcRoute();
-
-    if (!tg) {
-      statusEl.textContent = 'Открыто НЕ внутри Telegram (браузер).';
-      initDataEl.textContent = '(пусто)';
-      sendInitDataToServer('');
-    } else if (!tg.initData) {
-      tg.ready();
-      statusEl.textContent = 'Telegram.WebApp есть, но initData пустой (скорее всего открыто не из Telegram).';
-      initDataEl.textContent = '(пусто)';
-      sendInitDataToServer('');
+    if (tg.initData) {
+      statusEl.textContent = "Открыто внутри Telegram WebApp ✅";
     } else {
-      tg.ready();
-      statusEl.textContent = 'Открыто внутри Telegram WebApp ✅';
-      initDataEl.textContent = tg.initData;
-      sendInitDataToServer(tg.initData);
+      statusEl.textContent = "Открыто вне Telegram ⚠️";
     }
 
-    document.getElementById('btn').addEventListener('click', () => {
-      if (!tg) {
-        outEl.textContent = 'Нет Telegram.WebApp (открыто в обычном браузере).';
-        return;
-      }
+    checkAuthBtn.addEventListener("click", async () => {
+      outputEl.textContent = "Отправляю запрос auth...";
+      serverStatusEl.textContent = "проверяем...";
 
-      outEl.textContent = JSON.stringify(tg.initDataUnsafe?.user || null, null, 2);
+      try {
+        const res = await fetch("https://race-nutrition-miniapp.onrender.com/api/auth", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            initData: tg.initData || ""
+          })
+        });
+
+        const data = await res.json();
+        serverStatusEl.textContent = `auth: HTTP ${res.status}`;
+        outputEl.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        serverStatusEl.textContent = "auth: ошибка запроса";
+        outputEl.textContent = String(err);
+      }
+    });
+
+    checkCalcBtn.addEventListener("click", async () => {
+      outputEl.textContent = "Отправляю запрос calc...";
+      serverStatusEl.textContent = "проверяем...";
+
+      try {
+        const res = await fetch("https://race-nutrition-miniapp.onrender.com/api/calc", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            race_type: "trail",
+            duration_min: 360,
+            weight_kg: 72,
+            temperature_c: 24,
+            fuel_format: "combo",
+            gi_tolerance_level: "medium",
+            effort_level: "race",
+            humidity_pct: 68,
+            distance_km: 50,
+            sweat_rate_lph: null,
+            elevation_gain_m: 1800,
+            sodium_loss_profile: "unknown"
+          })
+        });
+
+        const data = await res.json();
+        serverStatusEl.textContent = `calc: HTTP ${res.status}`;
+        outputEl.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        serverStatusEl.textContent = "calc: ошибка запроса";
+        outputEl.textContent = String(err);
+      }
     });
   </script>
 </body>
