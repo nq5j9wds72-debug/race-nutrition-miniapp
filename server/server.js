@@ -119,7 +119,7 @@ app.post("/api/calc-test", (req, res) => {
   });
 });
 
-// main nutrition calculation route (stub v1 + required fields validation)
+// main nutrition calculation route (v1: validation + carbs)
 app.post("/api/calc", (req, res) => {
   const input = req.body || {};
 
@@ -139,6 +139,7 @@ app.post("/api/calc", (req, res) => {
   };
 
   const errors = [];
+  const warnings = [];
 
   if (!["road", "trail", "ultra"].includes(normalizedInput.race_type)) {
     errors.push("Поле race_type должно быть: road, trail или ultra.");
@@ -175,17 +176,56 @@ app.post("/api/calc", (req, res) => {
     });
   }
 
+  const durationMin = Number(normalizedInput.duration_min);
+  const durationHours = durationMin / 60;
+
+  let carbsPerHour = 0;
+
+  if (durationMin < 60) {
+    if (normalizedInput.gi_tolerance_level === "low") carbsPerHour = 0;
+    if (normalizedInput.gi_tolerance_level === "medium") carbsPerHour = 15;
+    if (normalizedInput.gi_tolerance_level === "high") carbsPerHour = 30;
+  } else if (durationMin <= 150) {
+    if (normalizedInput.gi_tolerance_level === "low") carbsPerHour = 30;
+    if (normalizedInput.gi_tolerance_level === "medium") carbsPerHour = 45;
+    if (normalizedInput.gi_tolerance_level === "high") carbsPerHour = 60;
+  } else {
+    if (normalizedInput.gi_tolerance_level === "low") carbsPerHour = 60;
+    if (normalizedInput.gi_tolerance_level === "medium") carbsPerHour = 75;
+    if (normalizedInput.gi_tolerance_level === "high") carbsPerHour = 90;
+  }
+
+  let carbIntervalMin = 30;
+  if (carbsPerHour > 45 && carbsPerHour <= 75) carbIntervalMin = 20;
+  if (carbsPerHour > 75) carbIntervalMin = 15;
+
+  const carbIntakesPerHour = 60 / carbIntervalMin;
+  const carbsPerIntake = carbsPerHour / carbIntakesPerHour;
+  const carbsTotal = carbsPerHour * durationHours;
+
+  const gelBasisG = 25;
+  const gelsPerHourEst = carbsPerHour / gelBasisG;
+  const gelsTotalEst = carbsTotal / gelBasisG;
+
+  if (carbsPerHour >= 75) {
+    warnings.push("Высокий план по углеводам лучше заранее протестировать на тренировке.");
+  }
+
+  if (normalizedInput.fuel_format === "drink_only" && carbsPerHour > 60) {
+    warnings.push("Только напитком такой объём углеводов набрать может быть неудобно.");
+  }
+
   return res.json({
     ok: true,
     errors: [],
-    warnings: [],
+    warnings,
     normalized_input: normalizedInput,
     result: {
       carbs: {
-        carbs_per_hour_g: 0,
-        carbs_total_g: 0,
-        carb_interval_min: 0,
-        carbs_per_intake_g: 0
+        carbs_per_hour_g: carbsPerHour,
+        carbs_total_g: carbsTotal,
+        carb_interval_min: carbIntervalMin,
+        carbs_per_intake_g: carbsPerIntake
       },
       fluid: {
         fluid_per_hour_ml: 0,
@@ -200,16 +240,17 @@ app.post("/api/calc", (req, res) => {
         sodium_per_intake_mg: 0
       },
       gel_equivalent: {
-        gels_per_hour_est: 0,
-        gels_total_est: 0,
-        gel_basis_g: 25
+        gels_per_hour_est: gelsPerHourEst,
+        gels_total_est: gelsTotalEst,
+        gel_basis_g: gelBasisG
       }
     },
     plan: {
-      summary: "Расчёт пока не подключён.",
+      summary: `Тебе нужно около ${carbsPerHour} г углеводов в час.`,
       plan_steps: [
-        "Сервер принял данные успешно.",
-        "Следующим шагом подключим реальные формулы расчёта."
+        `Принимай углеводы каждые ${carbIntervalMin} минут.`,
+        `Это примерно ${carbsPerIntake} г углеводов за один приём.`,
+        `Это примерно ${gelsPerHourEst} геля в час, если в одном геле ${gelBasisG} г углеводов.`
       ]
     }
   });
