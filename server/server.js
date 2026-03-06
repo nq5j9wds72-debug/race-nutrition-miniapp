@@ -63,107 +63,29 @@ function validateTelegramInitData(initData, botToken) {
   };
 }
 
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
+function toNullableNumber(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  return Number(value);
 }
 
-function getFluidIntervalMin(fluidPerHourMl) {
-  if (fluidPerHourMl <= 450) return 20;
-  if (fluidPerHourMl <= 750) return 15;
-  return 10;
+function isInRange(value, min, max) {
+  return Number.isFinite(value) && value >= min && value <= max;
 }
 
-function calculateFluid(normalizedInput, warnings = []) {
-  const durationHours = Number(normalizedInput.duration_min) / 60;
-  const temperatureC = Number(normalizedInput.temperature_c);
-  const humidityPct =
-    normalizedInput.humidity_pct === null || normalizedInput.humidity_pct === undefined
-      ? null
-      : Number(normalizedInput.humidity_pct);
-  const weightKg = Number(normalizedInput.weight_kg);
-  const effortLevel = normalizedInput.effort_level || "race";
-  const elevationGainM =
-    normalizedInput.elevation_gain_m === null || normalizedInput.elevation_gain_m === undefined
-      ? 0
-      : Number(normalizedInput.elevation_gain_m);
-  const sweatRateLph =
-    normalizedInput.sweat_rate_lph === null || normalizedInput.sweat_rate_lph === undefined
-      ? null
-      : Number(normalizedInput.sweat_rate_lph);
+function calculateFluidPerHourMl(normalizedInput) {
+  const sweatRateLph = normalizedInput.sweat_rate_lph;
+  const temperatureC = normalizedInput.temperature_c;
 
-  let fluidPerHourL = 0;
-  let hydrationModelSource = "";
-
-  // Ветка 1: есть личный sweat rate
-  if (Number.isFinite(sweatRateLph) && sweatRateLph > 0) {
-    let replacementFraction = 0.65;
-
-    if (temperatureC >= 25) replacementFraction += 0.05;
-    if (Number.isFinite(humidityPct) && humidityPct >= 70) replacementFraction += 0.05;
-    if (durationHours >= 4) replacementFraction += 0.05;
-    if (effortLevel === "completion") replacementFraction -= 0.05;
-    if (effortLevel === "aggressive") replacementFraction += 0.05;
-
-    replacementFraction = clamp(replacementFraction, 0.55, 0.80);
-
-    fluidPerHourL = sweatRateLph * replacementFraction;
-
-    // не даём плану быть равным или выше sweat rate
-    fluidPerHourL = Math.min(fluidPerHourL, sweatRateLph - 0.05);
-
-    // безопасный коридор MVP
-    fluidPerHourL = clamp(fluidPerHourL, 0.25, 1.0);
-    hydrationModelSource = "sweat_rate";
-  } else {
-    // Ветка 2: fallback по погоде
-    let baseLph = 0.30;
-
-    if (temperatureC < 5) baseLph = 0.30;
-    else if (temperatureC <= 14) baseLph = 0.40;
-    else if (temperatureC <= 19) baseLph = 0.50;
-    else if (temperatureC <= 24) baseLph = 0.60;
-    else if (temperatureC <= 29) baseLph = 0.75;
-    else if (temperatureC <= 34) baseLph = 0.90;
-    else baseLph = 1.00;
-
-    let adjustmentLph = 0;
-
-    if (Number.isFinite(humidityPct)) {
-      if (humidityPct >= 80) adjustmentLph += 0.10;
-      else if (humidityPct >= 60) adjustmentLph += 0.05;
-    }
-
-    if (weightKg < 55) adjustmentLph -= 0.05;
-    else if (weightKg > 85) adjustmentLph += 0.05;
-
-    if (effortLevel === "completion") adjustmentLph -= 0.05;
-    else if (effortLevel === "aggressive") adjustmentLph += 0.05;
-
-    if (elevationGainM >= 3000) adjustmentLph += 0.10;
-    else if (elevationGainM >= 1000) adjustmentLph += 0.05;
-
-    fluidPerHourL = clamp(baseLph + adjustmentLph, 0.25, 1.0);
-    hydrationModelSource = "fallback_weather_model";
-
-    warnings.push("Hydration рассчитана по приближенной модели, потому что sweat_rate_lph не указан.");
-
-    if (temperatureC >= 25) {
-      warnings.push("Жаркие условия без sweat_rate_lph: точность расчета жидкости ниже.");
-    }
+  if (Number.isFinite(sweatRateLph)) {
+    return sweatRateLph * 1000 * 0.7;
   }
 
-  const fluidPerHourMl = Math.round(fluidPerHourL * 1000);
-  const fluidTotalMl = Math.round(fluidPerHourMl * durationHours);
-  const fluidIntervalMin = getFluidIntervalMin(fluidPerHourMl);
-  const fluidPerIntakeMl = Math.round((fluidPerHourMl * fluidIntervalMin) / 60);
-
-  return {
-    fluid_per_hour_ml: fluidPerHourMl,
-    fluid_total_ml: fluidTotalMl,
-    fluid_interval_min: fluidIntervalMin,
-    fluid_per_intake_ml: fluidPerIntakeMl,
-    hydration_model_source: hydrationModelSource
-  };
+  if (temperatureC < 10) return 400;
+  if (temperatureC <= 19) return 500;
+  if (temperatureC <= 29) return 650;
+  return 800;
 }
 
 // health check
@@ -228,16 +150,16 @@ app.post("/api/calc", (req, res) => {
 
   const normalizedInput = {
     race_type: input.race_type ?? null,
-    duration_min: input.duration_min ?? null,
-    weight_kg: input.weight_kg ?? null,
-    temperature_c: input.temperature_c ?? null,
+    duration_min: toNullableNumber(input.duration_min),
+    weight_kg: toNullableNumber(input.weight_kg),
+    temperature_c: toNullableNumber(input.temperature_c),
     fuel_format: input.fuel_format ?? null,
     gi_tolerance_level: input.gi_tolerance_level ?? null,
     effort_level: input.effort_level ?? "race",
-    humidity_pct: input.humidity_pct ?? null,
-    distance_km: input.distance_km ?? null,
-    sweat_rate_lph: input.sweat_rate_lph ?? null,
-    elevation_gain_m: input.elevation_gain_m ?? null,
+    humidity_pct: toNullableNumber(input.humidity_pct),
+    distance_km: toNullableNumber(input.distance_km),
+    sweat_rate_lph: toNullableNumber(input.sweat_rate_lph),
+    elevation_gain_m: toNullableNumber(input.elevation_gain_m),
     sodium_loss_profile: input.sodium_loss_profile ?? null
   };
 
@@ -248,16 +170,16 @@ app.post("/api/calc", (req, res) => {
     errors.push("Поле race_type должно быть: road, trail или ultra.");
   }
 
-  if (!Number.isFinite(Number(normalizedInput.duration_min))) {
-    errors.push("Поле duration_min должно быть числом.");
+  if (!isInRange(normalizedInput.duration_min, 30, 2160)) {
+    errors.push("Поле duration_min должно быть числом от 30 до 2160.");
   }
 
-  if (!Number.isFinite(Number(normalizedInput.weight_kg))) {
-    errors.push("Поле weight_kg должно быть числом.");
+  if (!isInRange(normalizedInput.weight_kg, 35, 150)) {
+    errors.push("Поле weight_kg должно быть числом от 35 до 150.");
   }
 
-  if (!Number.isFinite(Number(normalizedInput.temperature_c))) {
-    errors.push("Поле temperature_c должно быть числом.");
+  if (!isInRange(normalizedInput.temperature_c, -20, 45)) {
+    errors.push("Поле temperature_c должно быть числом от -20 до 45.");
   }
 
   if (!["drink_only", "gels", "combo"].includes(normalizedInput.fuel_format)) {
@@ -266,6 +188,34 @@ app.post("/api/calc", (req, res) => {
 
   if (!["low", "medium", "high"].includes(normalizedInput.gi_tolerance_level)) {
     errors.push("Поле gi_tolerance_level должно быть: low, medium или high.");
+  }
+
+  if (
+    normalizedInput.humidity_pct !== null &&
+    !isInRange(normalizedInput.humidity_pct, 0, 100)
+  ) {
+    errors.push("Поле humidity_pct должно быть числом от 0 до 100.");
+  }
+
+  if (
+    normalizedInput.distance_km !== null &&
+    !isInRange(normalizedInput.distance_km, 1, 300)
+  ) {
+    errors.push("Поле distance_km должно быть числом от 1 до 300.");
+  }
+
+  if (
+    normalizedInput.sweat_rate_lph !== null &&
+    !isInRange(normalizedInput.sweat_rate_lph, 0.2, 2.5)
+  ) {
+    errors.push("Поле sweat_rate_lph должно быть числом от 0.2 до 2.5.");
+  }
+
+  if (
+    normalizedInput.elevation_gain_m !== null &&
+    !isInRange(normalizedInput.elevation_gain_m, 0, 20000)
+  ) {
+    errors.push("Поле elevation_gain_m должно быть числом от 0 до 20000.");
   }
 
   if (errors.length > 0) {
@@ -279,7 +229,7 @@ app.post("/api/calc", (req, res) => {
     });
   }
 
-  const durationMin = Number(normalizedInput.duration_min);
+  const durationMin = normalizedInput.duration_min;
   const durationHours = durationMin / 60;
 
   let carbsPerHour = 0;
@@ -318,7 +268,21 @@ app.post("/api/calc", (req, res) => {
     warnings.push("Только напитком такой объём углеводов набрать может быть неудобно.");
   }
 
-  const fluid = calculateFluid(normalizedInput, warnings);
+  if (
+    normalizedInput.sweat_rate_lph === null &&
+    normalizedInput.temperature_c >= 20
+  ) {
+    warnings.push("В жарких условиях без sweat_rate_lph точность расчёта жидкости ниже.");
+  }
+
+  if (durationMin > 720) {
+    warnings.push("Очень длинная гонка: расчёт носит ориентировочный характер и требует проверки на практике.");
+  }
+
+  const fluidPerHourMl = calculateFluidPerHourMl(normalizedInput);
+  const fluidTotalMl = fluidPerHourMl * durationHours;
+  const fluidIntervalMin = 15;
+  const fluidPerIntakeMl = fluidPerHourMl / 4;
 
   return res.json({
     ok: true,
@@ -332,7 +296,12 @@ app.post("/api/calc", (req, res) => {
         carb_interval_min: carbIntervalMin,
         carbs_per_intake_g: carbsPerIntake
       },
-      fluid,
+      fluid: {
+        fluid_per_hour_ml: fluidPerHourMl,
+        fluid_total_ml: fluidTotalMl,
+        fluid_interval_min: fluidIntervalMin,
+        fluid_per_intake_ml: fluidPerIntakeMl
+      },
       sodium: {
         sodium_per_hour_mg: 0,
         sodium_total_mg: 0,
@@ -346,13 +315,13 @@ app.post("/api/calc", (req, res) => {
       }
     },
     plan: {
-      summary: `Тебе нужно около ${carbsPerHour} г углеводов в час и около ${fluid.fluid_per_hour_ml} мл жидкости в час.`,
+      summary: `Тебе нужно около ${carbsPerHour} г углеводов в час и около ${fluidPerHourMl} мл жидкости в час.`,
       plan_steps: [
         `Принимай углеводы каждые ${carbIntervalMin} минут.`,
         `Это примерно ${carbsPerIntake} г углеводов за один приём.`,
         `Это примерно ${gelsPerHourEst} геля в час, если в одном геле ${gelBasisG} г углеводов.`,
-        `Пей примерно каждые ${fluid.fluid_interval_min} минут.`,
-        `Это около ${fluid.fluid_per_intake_ml} мл за один приём жидкости.`
+        `Пей каждые ${fluidIntervalMin} минут.`,
+        `Это примерно ${fluidPerIntakeMl} мл жидкости за один приём.`
       ]
     }
   });
