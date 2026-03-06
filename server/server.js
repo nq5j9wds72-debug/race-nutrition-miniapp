@@ -100,6 +100,25 @@ app.post("/api/auth", (req, res) => {
   });
 });
 
+// test calculation route
+app.post("/api/calc-test", (req, res) => {
+  const a = Number(req.body?.a);
+  const b = Number(req.body?.b);
+
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    return res.status(400).json({
+      ok: false,
+      error: "a and b must be numbers"
+    });
+  }
+
+  return res.json({
+    ok: true,
+    input: { a, b },
+    result: a + b
+  });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);
