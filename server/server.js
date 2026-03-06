@@ -278,7 +278,7 @@ app.post("/api/calc", (req, res) => {
     normalizedInput.sweat_rate_lph === null &&
     normalizedInput.temperature_c >= 20
   ) {
-    warnings.push("В жарких условиях без sweat_rate_lph точность расчёта жидкости ниже.");
+    warnings.push("В жару без данных о вашей потливости точность расчёта жидкости ниже.");
   }
 
   if (durationMin > 720) {
