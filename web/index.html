@@ -22,43 +22,65 @@
     <div class="muted">Статус Telegram WebApp:</div>
     <div id="status">проверяю...</div>
     <hr />
+
+    <div class="muted">Статус сервера:</div>
+    <div id="serverStatus">проверяю...</div>
+    <hr />
+
     <div class="muted">initData (для UI, не для доверия):</div>
     <div id="initData" style="word-break: break-all;"></div>
     <hr />
+
     <button id="btn">Показать user</button>
     <pre id="out"></pre>
   </div>
 
   <script>
     const statusEl = document.getElementById('status');
+    const serverStatusEl = document.getElementById('serverStatus');
     const initDataEl = document.getElementById('initData');
     const outEl = document.getElementById('out');
 
     const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 
-    async function sendInitDataToServer(initData) {
+    const API_BASE = 'https://race-nutrition-miniapp.onrender.com';
+
+    async function checkServerHealth() {
       try {
-        const r = await fetch("http://localhost:3000/api/auth", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ initData }),
-        });
+        const r = await fetch(`${API_BASE}/health`);
         const data = await r.json();
-        console.log("server /api/auth:", data);
+        serverStatusEl.textContent = 'Сервер отвечает: ' + JSON.stringify(data);
       } catch (e) {
-        console.log("server /api/auth error:", e);
+        serverStatusEl.textContent = 'Ошибка связи с сервером: ' + e.message;
       }
     }
+
+    async function sendInitDataToServer(initData) {
+      try {
+        const r = await fetch(`${API_BASE}/api/auth`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ initData }),
+        });
+
+        const data = await r.json();
+        console.log('server /api/auth:', data);
+      } catch (e) {
+        console.log('server /api/auth error:', e);
+      }
+    }
+
+    checkServerHealth();
 
     if (!tg) {
       statusEl.textContent = 'Открыто НЕ внутри Telegram (браузер).';
       initDataEl.textContent = '(пусто)';
-      sendInitDataToServer("");
+      sendInitDataToServer('');
     } else if (!tg.initData) {
       tg.ready();
       statusEl.textContent = 'Telegram.WebApp есть, но initData пустой (скорее всего открыто не из Telegram).';
       initDataEl.textContent = '(пусто)';
-      sendInitDataToServer("");
+      sendInitDataToServer('');
     } else {
       tg.ready();
       statusEl.textContent = 'Открыто внутри Telegram WebApp ✅';
@@ -71,6 +93,7 @@
         outEl.textContent = 'Нет Telegram.WebApp (открыто в обычном браузере).';
         return;
       }
+
       outEl.textContent = JSON.stringify(tg.initDataUnsafe?.user || null, null, 2);
     });
   </script>
