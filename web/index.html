@@ -104,6 +104,22 @@
       margin: 8px 0 0 18px;
       padding: 0;
     }
+
+    .duration-inline {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      margin-bottom: 12px;
+    }
+
+    .duration-inline .row {
+      margin-bottom: 0;
+      flex: 0 0 120px;
+    }
+
+    .duration-inline .row input {
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -136,14 +152,16 @@
       </select>
     </div>
 
-    <div class="row">
-      <label for="duration_hours">Длительность гонки</label>
-      <input id="duration_hours" type="number" min="0" max="36" placeholder="Часы, например: 6" />
-    </div>
+    <div class="duration-inline">
+      <div class="row">
+        <label for="duration_hours">Часы</label>
+        <input id="duration_hours" type="number" min="0" max="36" placeholder="6" />
+      </div>
 
-    <div class="row">
-      <label for="duration_minutes">Дополнительные минуты</label>
-      <input id="duration_minutes" type="number" min="0" max="59" placeholder="Минуты, например: 30" />
+      <div class="row">
+        <label for="duration_minutes">Минуты</label>
+        <input id="duration_minutes" type="number" min="0" max="59" placeholder="30" />
+      </div>
     </div>
 
     <div class="row">
