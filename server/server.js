@@ -14,7 +14,7 @@ function validateTelegramInitData(initData, botToken) {
   const hash = params.get("hash");
 
   if (!hash) {
-    return { ok: false, error: "hash not found" };
+    return { ok: false, error: "В данных Telegram отсутствует подпись hash." };
   }
 
   params.delete("hash");
@@ -35,7 +35,7 @@ function validateTelegramInitData(initData, botToken) {
     .digest("hex");
 
   if (calculatedHash !== hash) {
-    return { ok: false, error: "invalid hash" };
+    return { ok: false, error: "Подпись данных Telegram не прошла проверку." };
   }
 
   const authDate = Number(params.get("auth_date") || 0);
@@ -43,7 +43,7 @@ function validateTelegramInitData(initData, botToken) {
   const maxAgeSeconds = 24 * 60 * 60;
 
   if (!authDate || now - authDate > maxAgeSeconds) {
-    return { ok: false, error: "auth_date is too old or missing" };
+    return { ok: false, error: "Данные Telegram устарели или не содержат время авторизации." };
   }
 
   let user = null;
@@ -107,14 +107,14 @@ app.post("/api/auth", (req, res) => {
   if (!botToken) {
     return res.status(500).json({
       ok: false,
-      error: "BOT_TOKEN is not set on server"
+      error: "На сервере не настроен BOT_TOKEN."
     });
   }
 
   if (!initData) {
     return res.status(400).json({
       ok: false,
-      error: "initData is empty"
+      error: "Не переданы данные Telegram WebApp."
     });
   }
 
@@ -139,7 +139,7 @@ app.post("/api/calc-test", (req, res) => {
   if (!Number.isFinite(a) || !Number.isFinite(b)) {
     return res.status(400).json({
       ok: false,
-      error: "a and b must be numbers"
+      error: "Поля a и b должны быть числами."
     });
   }
 
@@ -173,55 +173,55 @@ app.post("/api/calc", (req, res) => {
   const warnings = [];
 
   if (!["road", "trail", "ultra"].includes(normalizedInput.race_type)) {
-    errors.push("Поле race_type должно быть: road, trail или ultra.");
+    errors.push("Выбери корректный тип гонки: шоссе, трейл или ультра.");
   }
 
   if (!isInRange(normalizedInput.duration_min, 30, 2160)) {
-    errors.push("Поле duration_min должно быть числом от 30 до 2160.");
+    errors.push("Длительность гонки должна быть от 30 минут до 36 часов.");
   }
 
   if (!isInRange(normalizedInput.weight_kg, 35, 150)) {
-    errors.push("Поле weight_kg должно быть числом от 35 до 150.");
+    errors.push("Вес должен быть числом от 35 до 150 кг.");
   }
 
   if (!isInRange(normalizedInput.temperature_c, -20, 45)) {
-    errors.push("Поле temperature_c должно быть числом от -20 до 45.");
+    errors.push("Температура должна быть от -20 до 45 °C.");
   }
 
   if (!["drink_only", "gels", "combo"].includes(normalizedInput.fuel_format)) {
-    errors.push("Поле fuel_format должно быть: drink_only, gels или combo.");
+    errors.push("Выбери корректный формат питания: только питьё, гели или комбинированно.");
   }
 
   if (!["low", "medium", "high"].includes(normalizedInput.gi_tolerance_level)) {
-    errors.push("Поле gi_tolerance_level должно быть: low, medium или high.");
+    errors.push("Выбери корректную переносимость углеводов: низкая, средняя или высокая.");
   }
 
   if (
     normalizedInput.humidity_pct !== null &&
     !isInRange(normalizedInput.humidity_pct, 0, 100)
   ) {
-    errors.push("Поле humidity_pct должно быть числом от 0 до 100.");
+    errors.push("Влажность должна быть числом от 0 до 100%.");
   }
 
   if (
     normalizedInput.distance_km !== null &&
     !isInRange(normalizedInput.distance_km, 1, 300)
   ) {
-    errors.push("Поле distance_km должно быть числом от 1 до 300.");
+    errors.push("Дистанция должна быть числом от 1 до 300 км.");
   }
 
   if (
     normalizedInput.sweat_rate_lph !== null &&
     !isInRange(normalizedInput.sweat_rate_lph, 0.2, 2.5)
   ) {
-    errors.push("Поле sweat_rate_lph должно быть числом от 0.2 до 2.5.");
+    errors.push("Потливость должна быть числом от 0.2 до 2.5 литра в час.");
   }
 
   if (
     normalizedInput.elevation_gain_m !== null &&
     !isInRange(normalizedInput.elevation_gain_m, 0, 20000)
   ) {
-    errors.push("Поле elevation_gain_m должно быть числом от 0 до 20000.");
+    errors.push("Набор высоты должен быть числом от 0 до 20000 м.");
   }
 
   if (errors.length > 0) {
