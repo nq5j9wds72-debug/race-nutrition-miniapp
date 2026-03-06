@@ -137,8 +137,13 @@
     </div>
 
     <div class="row">
-      <label for="duration_min">Длительность гонки (мин)</label>
-      <input id="duration_min" type="number" min="30" max="2160" placeholder="Например: 360" />
+      <label for="duration_hours">Длительность гонки</label>
+      <input id="duration_hours" type="number" min="0" max="36" placeholder="Часы, например: 6" />
+    </div>
+
+    <div class="row">
+      <label for="duration_minutes">Дополнительные минуты</label>
+      <input id="duration_minutes" type="number" min="0" max="59" placeholder="Минуты, например: 30" />
     </div>
 
     <div class="row">
@@ -164,7 +169,7 @@
       <label for="gi_tolerance_level">Переносимость углеводов</label>
       <select id="gi_tolerance_level">
         <option value="low">Низкая</option>
-        <option value="medium">Средняя</option>
+        <option value="medium" selected>Средняя</option>
         <option value="high">Высокая</option>
       </select>
     </div>
@@ -194,6 +199,22 @@
 
     const statusEl = document.getElementById("status");
     const userEl = document.getElementById("user");
+    const serverStatusEl = document.getElementById("server-status");
+
+    const raceTypeEl = document.getElementById("race_type");
+    const durationHoursEl = document.getElementById("duration_hours");
+    const durationMinutesEl = document.getElementById("duration_minutes");
+    const weightEl = document.getElementById("weight_kg");
+    const temperatureEl = document.getElementById("temperature_c");
+    const fuelFormatEl = document.getElementById("fuel_format");
+    const giToleranceEl = document.getElementById("gi_tolerance_level");
+    const calcBtn = document.getElementById("calc-btn");
+
+    const errorsBoxEl = document.getElementById("errors-box");
+    const errorsListEl = document.getElementById("errors-list");
+    const warningsBoxEl = document.getElementById("warnings-box");
+    const warningsListEl = document.getElementById("warnings-list");
+    const resultEl = document.getElementById("result");
 
     if (tg) {
       tg.ready();
@@ -216,6 +237,134 @@
       statusEl.textContent = "Открыто вне Telegram ⚠️";
       userEl.textContent = "Нет данных пользователя";
     }
+
+    function parseNumberOrNull(value) {
+      if (value === "" || value === null || value === undefined) {
+        return null;
+      }
+
+      const num = Number(value);
+      return Number.isFinite(num) ? num : null;
+    }
+
+    function buildDurationMinutes() {
+      const rawHours = durationHoursEl.value;
+      const rawMinutes = durationMinutesEl.value;
+
+      if (rawHours === "" && rawMinutes === "") {
+        return null;
+      }
+
+      const hours = parseNumberOrNull(rawHours) ?? 0;
+      const minutes = parseNumberOrNull(rawMinutes) ?? 0;
+
+      return (hours * 60) + minutes;
+    }
+
+    function clearMessages() {
+      errorsListEl.innerHTML = "";
+      warningsListEl.innerHTML = "";
+      errorsBoxEl.classList.add("hidden");
+      warningsBoxEl.classList.add("hidden");
+    }
+
+    function showList(listEl, boxEl, items) {
+      listEl.innerHTML = "";
+
+      items.forEach((item) => {
+        const li = document.createElement("li");
+        li.textContent = item;
+        listEl.appendChild(li);
+      });
+
+      boxEl.classList.remove("hidden");
+    }
+
+    function formatCalcResponse(data) {
+      if (!data || typeof data !== "object") {
+        return "Пустой или некорректный ответ сервера.";
+      }
+
+      const carbs = data.result?.carbs;
+      const fluid = data.result?.fluid;
+      const sodium = data.result?.sodium;
+      const gels = data.result?.gel_equivalent;
+      const planSummary = data.plan?.summary || "Расчёт выполнен.";
+      const planSteps = data.plan?.plan_steps || [];
+
+      return [
+        planSummary,
+        "",
+        "Углеводы:",
+        `- в час: ${carbs?.carbs_per_hour_g ?? "-"} г`,
+        `- всего: ${carbs?.carbs_total_g ?? "-"} г`,
+        `- интервал: каждые ${carbs?.carb_interval_min ?? "-"} мин`,
+        `- за приём: ${carbs?.carbs_per_intake_g ?? "-"} г`,
+        "",
+        "Жидкость:",
+        `- в час: ${fluid?.fluid_per_hour_ml ?? "-"} мл`,
+        `- всего: ${fluid?.fluid_total_ml ?? "-"} мл`,
+        `- интервал: каждые ${fluid?.fluid_interval_min ?? "-"} мин`,
+        `- за приём: ${fluid?.fluid_per_intake_ml ?? "-"} мл`,
+        "",
+        "Натрий:",
+        `- в час: ${sodium?.sodium_per_hour_mg ?? "-"} мг`,
+        `- всего: ${sodium?.sodium_total_mg ?? "-"} мг`,
+        `- интервал: каждые ${sodium?.sodium_interval_min ?? "-"} мин`,
+        `- за приём: ${sodium?.sodium_per_intake_mg ?? "-"} мг`,
+        "",
+        "Эквивалент гелей:",
+        `- в час: ${gels?.gels_per_hour_est ?? "-"} геля`,
+        `- всего: ${gels?.gels_total_est ?? "-"} гелей`,
+        `- база: ${gels?.gel_basis_g ?? "-"} г углеводов в 1 геле`,
+        "",
+        "Пошаговый план:",
+        ...(planSteps.length ? planSteps.map(item => `- ${item}`) : ["- нет"])
+      ].join("\n");
+    }
+
+    calcBtn.addEventListener("click", async () => {
+      clearMessages();
+      resultEl.textContent = "Отправляю запрос...";
+      serverStatusEl.textContent = "проверяем...";
+
+      const payload = {
+        race_type: raceTypeEl.value,
+        duration_min: buildDurationMinutes(),
+        weight_kg: parseNumberOrNull(weightEl.value),
+        temperature_c: parseNumberOrNull(temperatureEl.value),
+        fuel_format: fuelFormatEl.value,
+        gi_tolerance_level: giToleranceEl.value
+      };
+
+      try {
+        const res = await fetch("https://race-nutrition-miniapp.onrender.com/api/calc", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        serverStatusEl.textContent = `calc: HTTP ${res.status}`;
+
+        if (data.ok === false) {
+          showList(errorsListEl, errorsBoxEl, data.errors || ["Неизвестная ошибка"]);
+          resultEl.textContent = "Расчёт не выполнен.";
+          return;
+        }
+
+        if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+          showList(warningsListEl, warningsBoxEl, data.warnings);
+        }
+
+        resultEl.textContent = formatCalcResponse(data);
+      } catch (err) {
+        serverStatusEl.textContent = "calc: ошибка запроса";
+        resultEl.textContent = String(err);
+      }
+    });
   </script>
 </body>
 </html>
