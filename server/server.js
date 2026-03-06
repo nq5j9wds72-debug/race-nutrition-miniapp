@@ -88,6 +88,12 @@ function calculateFluidPerHourMl(normalizedInput) {
   return 800;
 }
 
+function getSodiumConcentrationMgL(temperatureC) {
+  if (temperatureC >= 30) return 900;
+  if (temperatureC >= 20) return 700;
+  return 500;
+}
+
 // health check
 app.get("/health", (req, res) => {
   res.json({ ok: true, ts: Date.now() });
@@ -144,7 +150,7 @@ app.post("/api/calc-test", (req, res) => {
   });
 });
 
-// main nutrition calculation route (v1: validation + carbs + fluid)
+// main nutrition calculation route (v1: validation + carbs + fluid + sodium)
 app.post("/api/calc", (req, res) => {
   const input = req.body || {};
 
@@ -279,10 +285,18 @@ app.post("/api/calc", (req, res) => {
     warnings.push("Очень длинная гонка: расчёт носит ориентировочный характер и требует проверки на практике.");
   }
 
+  warnings.push("Натрий — это ориентир, а не защита от перепивания.");
+
   const fluidPerHourMl = calculateFluidPerHourMl(normalizedInput);
   const fluidTotalMl = fluidPerHourMl * durationHours;
   const fluidIntervalMin = 15;
   const fluidPerIntakeMl = fluidPerHourMl / 4;
+
+  const sodiumConcentrationMgL = getSodiumConcentrationMgL(normalizedInput.temperature_c);
+  const sodiumPerHourMg = (fluidPerHourMl / 1000) * sodiumConcentrationMgL;
+  const sodiumTotalMg = sodiumPerHourMg * durationHours;
+  const sodiumIntervalMin = 15;
+  const sodiumPerIntakeMg = sodiumPerHourMg / 4;
 
   return res.json({
     ok: true,
@@ -303,10 +317,10 @@ app.post("/api/calc", (req, res) => {
         fluid_per_intake_ml: fluidPerIntakeMl
       },
       sodium: {
-        sodium_per_hour_mg: 0,
-        sodium_total_mg: 0,
-        sodium_interval_min: 15,
-        sodium_per_intake_mg: 0
+        sodium_per_hour_mg: sodiumPerHourMg,
+        sodium_total_mg: sodiumTotalMg,
+        sodium_interval_min: sodiumIntervalMin,
+        sodium_per_intake_mg: sodiumPerIntakeMg
       },
       gel_equivalent: {
         gels_per_hour_est: gelsPerHourEst,
@@ -315,13 +329,14 @@ app.post("/api/calc", (req, res) => {
       }
     },
     plan: {
-      summary: `Тебе нужно около ${carbsPerHour} г углеводов в час и около ${fluidPerHourMl} мл жидкости в час.`,
+      summary: `Тебе нужно около ${carbsPerHour} г углеводов в час, около ${fluidPerHourMl} мл жидкости в час и около ${sodiumPerHourMg} мг натрия в час.`,
       plan_steps: [
         `Принимай углеводы каждые ${carbIntervalMin} минут.`,
         `Это примерно ${carbsPerIntake} г углеводов за один приём.`,
         `Это примерно ${gelsPerHourEst} геля в час, если в одном геле ${gelBasisG} г углеводов.`,
         `Пей каждые ${fluidIntervalMin} минут.`,
-        `Это примерно ${fluidPerIntakeMl} мл жидкости за один приём.`
+        `Это примерно ${fluidPerIntakeMl} мл жидкости за один приём.`,
+        `Ориентир по натрию: около ${sodiumPerIntakeMg} мг каждые ${sodiumIntervalMin} минут.`
       ]
     }
   });
