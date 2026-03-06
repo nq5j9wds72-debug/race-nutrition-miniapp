@@ -102,9 +102,9 @@
           })
         });
 
-        const data = await res.json();
+        const text = await res.text();
         serverStatusEl.textContent = `calc: HTTP ${res.status}`;
-        outputEl.textContent = JSON.stringify(data, null, 2);
+        outputEl.textContent = text;
       } catch (err) {
         serverStatusEl.textContent = "calc: ошибка запроса";
         outputEl.textContent = String(err);
