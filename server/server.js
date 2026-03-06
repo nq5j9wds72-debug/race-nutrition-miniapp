@@ -119,28 +119,67 @@ app.post("/api/calc-test", (req, res) => {
   });
 });
 
-// main nutrition calculation route (stub v1)
+// main nutrition calculation route (stub v1 + required fields validation)
 app.post("/api/calc", (req, res) => {
   const input = req.body || {};
+
+  const normalizedInput = {
+    race_type: input.race_type ?? null,
+    duration_min: input.duration_min ?? null,
+    weight_kg: input.weight_kg ?? null,
+    temperature_c: input.temperature_c ?? null,
+    fuel_format: input.fuel_format ?? null,
+    gi_tolerance_level: input.gi_tolerance_level ?? null,
+    effort_level: input.effort_level ?? "race",
+    humidity_pct: input.humidity_pct ?? null,
+    distance_km: input.distance_km ?? null,
+    sweat_rate_lph: input.sweat_rate_lph ?? null,
+    elevation_gain_m: input.elevation_gain_m ?? null,
+    sodium_loss_profile: input.sodium_loss_profile ?? null
+  };
+
+  const errors = [];
+
+  if (!["road", "trail", "ultra"].includes(normalizedInput.race_type)) {
+    errors.push("Поле race_type должно быть: road, trail или ultra.");
+  }
+
+  if (!Number.isFinite(Number(normalizedInput.duration_min))) {
+    errors.push("Поле duration_min должно быть числом.");
+  }
+
+  if (!Number.isFinite(Number(normalizedInput.weight_kg))) {
+    errors.push("Поле weight_kg должно быть числом.");
+  }
+
+  if (!Number.isFinite(Number(normalizedInput.temperature_c))) {
+    errors.push("Поле temperature_c должно быть числом.");
+  }
+
+  if (!["drink_only", "gels", "combo"].includes(normalizedInput.fuel_format)) {
+    errors.push("Поле fuel_format должно быть: drink_only, gels или combo.");
+  }
+
+  if (!["low", "medium", "high"].includes(normalizedInput.gi_tolerance_level)) {
+    errors.push("Поле gi_tolerance_level должно быть: low, medium или high.");
+  }
+
+  if (errors.length > 0) {
+    return res.status(400).json({
+      ok: false,
+      errors,
+      warnings: [],
+      normalized_input: normalizedInput,
+      result: null,
+      plan: null
+    });
+  }
 
   return res.json({
     ok: true,
     errors: [],
     warnings: [],
-    normalized_input: {
-      race_type: input.race_type ?? null,
-      duration_min: input.duration_min ?? null,
-      weight_kg: input.weight_kg ?? null,
-      temperature_c: input.temperature_c ?? null,
-      fuel_format: input.fuel_format ?? null,
-      gi_tolerance_level: input.gi_tolerance_level ?? null,
-      effort_level: input.effort_level ?? "race",
-      humidity_pct: input.humidity_pct ?? null,
-      distance_km: input.distance_km ?? null,
-      sweat_rate_lph: input.sweat_rate_lph ?? null,
-      elevation_gain_m: input.elevation_gain_m ?? null,
-      sodium_loss_profile: input.sodium_loss_profile ?? null
-    },
+    normalized_input: normalizedInput,
     result: {
       carbs: {
         carbs_per_hour_g: 0,
