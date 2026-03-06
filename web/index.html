@@ -70,7 +70,23 @@
       }
     }
 
+    async function testCalcRoute() {
+      try {
+        const r = await fetch(`${API_BASE}/api/calc-test`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ a: 2, b: 3 }),
+        });
+
+        const data = await r.json();
+        console.log('server /api/calc-test:', data);
+      } catch (e) {
+        console.log('server /api/calc-test error:', e);
+      }
+    }
+
     checkServerHealth();
+    testCalcRoute();
 
     if (!tg) {
       statusEl.textContent = 'Открыто НЕ внутри Telegram (браузер).';
