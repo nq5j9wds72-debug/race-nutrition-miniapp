@@ -8,11 +8,102 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
   <style>
-    body { font-family: Arial, sans-serif; padding: 16px; }
-    .card { border: 1px solid #ddd; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
-    .muted { opacity: 0.7; }
-    button { padding: 10px 12px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer; margin-right: 8px; margin-top: 8px; }
-    pre { white-space: pre-wrap; word-break: break-word; background: #f6f6f6; padding: 12px; border-radius: 12px; }
+    body {
+      font-family: Arial, sans-serif;
+      padding: 16px;
+      margin: 0;
+      background: #ffffff;
+      color: #111111;
+    }
+
+    h1 {
+      margin-top: 0;
+      margin-bottom: 16px;
+      font-size: 24px;
+    }
+
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+
+    .muted {
+      opacity: 0.7;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    label {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    input,
+    select,
+    button {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+      background: #fff;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .box-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .errors {
+      border: 1px solid #d33;
+      background: #fff5f5;
+      color: #a40000;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+
+    .warnings {
+      border: 1px solid #e0a800;
+      background: #fffaf0;
+      color: #7a5600;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+
+    .result {
+      border: 1px solid #ddd;
+      background: #fafafa;
+      border-radius: 12px;
+      padding: 12px;
+      white-space: pre-wrap;
+      line-height: 1.5;
+    }
+
+    ul {
+      margin: 8px 0 0 18px;
+      padding: 0;
+    }
   </style>
 </head>
 <body>
@@ -21,150 +112,110 @@
   <div class="card">
     <div class="muted">Статус Telegram WebApp:</div>
     <div id="status">проверяю...</div>
+
+    <hr />
+
+    <div class="muted">Пользователь:</div>
+    <div id="user">пока нет данных</div>
+
     <hr />
 
     <div class="muted">Статус сервера:</div>
-    <div id="serverStatus">ещё не проверяли</div>
-    <hr />
-
-    <button id="checkAuthBtn">Проверить auth</button>
-    <button id="checkCalcBtn">Проверить calc</button>
+    <div id="server-status">будет проверяться при расчёте</div>
   </div>
 
   <div class="card">
-    <div class="muted">Ответ сервера:</div>
-    <pre id="output">пока пусто</pre>
+    <div class="box-title">Введите данные для расчёта</div>
+
+    <div class="row">
+      <label for="race_type">Тип гонки</label>
+      <select id="race_type">
+        <option value="road">Шоссе</option>
+        <option value="trail">Трейл</option>
+        <option value="ultra">Ультра</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <label for="duration_min">Длительность гонки (мин)</label>
+      <input id="duration_min" type="number" min="30" max="2160" placeholder="Например: 360" />
+    </div>
+
+    <div class="row">
+      <label for="weight_kg">Вес (кг)</label>
+      <input id="weight_kg" type="number" min="35" max="150" placeholder="Например: 72" />
+    </div>
+
+    <div class="row">
+      <label for="temperature_c">Температура (°C)</label>
+      <input id="temperature_c" type="number" min="-20" max="45" placeholder="Например: 24" />
+    </div>
+
+    <div class="row">
+      <label for="fuel_format">Формат питания</label>
+      <select id="fuel_format">
+        <option value="drink_only">Только питьё</option>
+        <option value="gels">Гели</option>
+        <option value="combo">Комбинированно</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <label for="gi_tolerance_level">Переносимость углеводов</label>
+      <select id="gi_tolerance_level">
+        <option value="low">Низкая</option>
+        <option value="medium">Средняя</option>
+        <option value="high">Высокая</option>
+      </select>
+    </div>
+
+    <button id="calc-btn" type="button">Рассчитать</button>
+  </div>
+
+  <div id="errors-box" class="errors hidden">
+    <strong>Ошибки:</strong>
+    <ul id="errors-list"></ul>
+  </div>
+
+  <div id="warnings-box" class="warnings hidden">
+    <strong>Предупреждения:</strong>
+    <ul id="warnings-list"></ul>
+  </div>
+
+  <div class="card">
+    <div class="box-title">Результат</div>
+    <div id="result" class="result">Пока расчёта нет.</div>
   </div>
 
   <script>
-    const tg = window.Telegram.WebApp;
-    tg.expand();
+    const tg = window.Telegram && window.Telegram.WebApp
+      ? window.Telegram.WebApp
+      : null;
 
     const statusEl = document.getElementById("status");
-    const serverStatusEl = document.getElementById("serverStatus");
-    const outputEl = document.getElementById("output");
-    const checkAuthBtn = document.getElementById("checkAuthBtn");
-    const checkCalcBtn = document.getElementById("checkCalcBtn");
+    const userEl = document.getElementById("user");
 
-    if (tg.initData) {
+    if (tg) {
+      tg.ready();
+      tg.expand();
+
       statusEl.textContent = "Открыто внутри Telegram WebApp ✅";
+
+      const user = tg.initDataUnsafe && tg.initDataUnsafe.user
+        ? tg.initDataUnsafe.user
+        : null;
+
+      if (user) {
+        const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ");
+        const username = user.username ? "(@" + user.username + ")" : "";
+        userEl.textContent = (fullName || "Без имени") + " " + username;
+      } else {
+        userEl.textContent = "Пользователь не передан";
+      }
     } else {
       statusEl.textContent = "Открыто вне Telegram ⚠️";
+      userEl.textContent = "Нет данных пользователя";
     }
-
-    function formatCalcResponse(data) {
-      if (!data || typeof data !== "object") {
-        return "Пустой или некорректный ответ сервера.";
-      }
-
-      if (data.ok === false) {
-        return [
-          "Расчёт не выполнен.",
-          "",
-          "Ошибки:",
-          ...(data.errors || [])
-        ].join("\n");
-      }
-
-      const carbs = data.result?.carbs;
-      const fluid = data.result?.fluid;
-      const sodium = data.result?.sodium;
-      const gels = data.result?.gel_equivalent;
-      const warnings = data.warnings || [];
-      const planSteps = data.plan?.plan_steps || [];
-
-      return [
-        data.plan?.summary || "Расчёт выполнен.",
-        "",
-        "Углеводы:",
-        `- в час: ${carbs?.carbs_per_hour_g ?? "-" } г`,
-        `- всего: ${carbs?.carbs_total_g ?? "-" } г`,
-        `- интервал: каждые ${carbs?.carb_interval_min ?? "-" } мин`,
-        `- за приём: ${carbs?.carbs_per_intake_g ?? "-" } г`,
-        "",
-        "Жидкость:",
-        `- в час: ${fluid?.fluid_per_hour_ml ?? "-" } мл`,
-        `- всего: ${fluid?.fluid_total_ml ?? "-" } мл`,
-        `- интервал: каждые ${fluid?.fluid_interval_min ?? "-" } мин`,
-        `- за приём: ${fluid?.fluid_per_intake_ml ?? "-" } мл`,
-        "",
-        "Натрий:",
-        `- в час: ${sodium?.sodium_per_hour_mg ?? "-" } мг`,
-        `- всего: ${sodium?.sodium_total_mg ?? "-" } мг`,
-        `- интервал: каждые ${sodium?.sodium_interval_min ?? "-" } мин`,
-        `- за приём: ${sodium?.sodium_per_intake_mg ?? "-" } мг`,
-        "",
-        "Эквивалент гелей:",
-        `- в час: ${gels?.gels_per_hour_est ?? "-" }`,
-        `- всего: ${gels?.gels_total_est ?? "-" }`,
-        `- база: ${gels?.gel_basis_g ?? "-" } г углеводов в 1 геле`,
-        "",
-        "Предупреждения:",
-        ...(warnings.length ? warnings.map(item => `- ${item}`) : ["- нет"]),
-        "",
-        "План:",
-        ...(planSteps.length ? planSteps.map(item => `- ${item}`) : ["- нет"])
-      ].join("\n");
-    }
-
-    checkAuthBtn.addEventListener("click", async () => {
-      outputEl.textContent = "Отправляю запрос auth...";
-      serverStatusEl.textContent = "проверяем...";
-
-      try {
-        const res = await fetch("https://race-nutrition-miniapp.onrender.com/api/auth", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            initData: tg.initData || ""
-          })
-        });
-
-        const data = await res.json();
-        serverStatusEl.textContent = `auth: HTTP ${res.status}`;
-        outputEl.textContent = JSON.stringify(data, null, 2);
-      } catch (err) {
-        serverStatusEl.textContent = "auth: ошибка запроса";
-        outputEl.textContent = String(err);
-      }
-    });
-
-    checkCalcBtn.addEventListener("click", async () => {
-      outputEl.textContent = "Отправляю запрос calc...";
-      serverStatusEl.textContent = "проверяем...";
-
-      try {
-        const res = await fetch("https://race-nutrition-miniapp.onrender.com/api/calc", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            race_type: "trail",
-            duration_min: 360,
-            weight_kg: 72,
-            temperature_c: 24,
-            fuel_format: "combo",
-            gi_tolerance_level: "medium",
-            effort_level: "race",
-            humidity_pct: 68,
-            distance_km: 50,
-            sweat_rate_lph: null,
-            elevation_gain_m: 1800,
-            sodium_loss_profile: "unknown"
-          })
-        });
-
-        const data = await res.json();
-        serverStatusEl.textContent = `calc: HTTP ${res.status}`;
-        outputEl.textContent = formatCalcResponse(data);
-      } catch (err) {
-        serverStatusEl.textContent = "calc: ошибка запроса";
-        outputEl.textContent = String(err);
-      }
-    });
   </script>
 </body>
 </html>
