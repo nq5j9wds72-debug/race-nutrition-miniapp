@@ -149,6 +149,15 @@ app.get("/api/metrics", (req, res) => {
   });
 });
 
+// track mini app open
+app.post("/api/track-open", (req, res) => {
+  incrementMetric("miniapp_open");
+
+  res.json({
+    ok: true
+  });
+});
+
 // auth with Telegram initData validation
 app.post("/api/auth", (req, res) => {
   const initData = String(req.body?.initData || "");
