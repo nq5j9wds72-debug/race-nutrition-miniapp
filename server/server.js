@@ -94,6 +94,22 @@ function getSodiumConcentrationMgL(temperatureC) {
   return 500;
 }
 
+function roundTo5(value) {
+  return Math.round(Number(value) / 5) * 5;
+}
+
+function formatDurationHuman(durationMin) {
+  const totalMin = Number(durationMin || 0);
+  const hours = Math.floor(totalMin / 60);
+  const minutes = totalMin % 60;
+
+  if (hours > 0) {
+    return `${hours} ч ${String(minutes).padStart(2, "0")} мин`;
+  }
+
+  return `${minutes} мин`;
+}
+
 // health check
 app.get("/health", (req, res) => {
   res.json({ ok: true, ts: Date.now() });
@@ -298,6 +314,20 @@ app.post("/api/calc", (req, res) => {
   const sodiumIntervalMin = 15;
   const sodiumPerIntakeMg = sodiumPerHourMg / 4;
 
+  const durationHuman = formatDurationHuman(durationMin);
+
+  const displayCarbsPerHour = Math.round(carbsPerHour);
+  const displayCarbsPerIntake = Math.round(carbsPerIntake);
+  const displayCarbsTotal = Math.round(carbsTotal);
+
+  const displayFluidPerHourMl = Math.round(fluidPerHourMl);
+  const displayFluidPerIntakeMl = roundTo5(fluidPerIntakeMl);
+  const displayFluidTotalMl = Math.round(fluidTotalMl);
+
+  const displaySodiumPerHourMg = Math.round(sodiumPerHourMg);
+  const displaySodiumPerIntakeMg = Math.round(sodiumPerIntakeMg);
+  const displaySodiumTotalMg = Math.round(sodiumTotalMg);
+
   return res.json({
     ok: true,
     errors: [],
@@ -329,14 +359,13 @@ app.post("/api/calc", (req, res) => {
       }
     },
     plan: {
-      summary: `Тебе нужно около ${carbsPerHour} г углеводов в час, около ${fluidPerHourMl} мл жидкости в час и около ${sodiumPerHourMg} мг натрия в час.`,
+      summary: `На ${durationHuman} тебе нужен план: около ${displayCarbsPerHour} г углеводов в час, ${displayFluidPerHourMl} мл жидкости в час и ${displaySodiumPerHourMg} мг натрия в час.`,
       plan_steps: [
-        `Принимай углеводы каждые ${carbIntervalMin} минут.`,
-        `Это примерно ${carbsPerIntake} г углеводов за один приём.`,
-        `Это примерно ${gelsPerHourEst} геля в час, если в одном геле ${gelBasisG} г углеводов.`,
-        `Пей каждые ${fluidIntervalMin} минут.`,
-        `Это примерно ${fluidPerIntakeMl} мл жидкости за один приём.`,
-        `Ориентир по натрию: около ${sodiumPerIntakeMg} мг каждые ${sodiumIntervalMin} минут.`
+        "Начни питание с первых 20–30 минут гонки, не жди сильного голода или упадка энергии.",
+        `Принимай углеводы каждые ${carbIntervalMin} мин: около ${displayCarbsPerIntake} г за приём.`,
+        `Пей каждые ${fluidIntervalMin} мин: около ${displayFluidPerIntakeMl} мл за приём.`,
+        `Старайся получать около ${displaySodiumPerIntakeMg} мг натрия за приём.`,
+        `Всего за гонку ориентир такой: ${displayCarbsTotal} г углеводов, ${displayFluidTotalMl} мл жидкости и ${displaySodiumTotalMg} мг натрия.`
       ]
     }
   });
