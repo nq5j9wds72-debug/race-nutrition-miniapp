@@ -198,6 +198,51 @@
       </select>
     </div>
 
+    <hr />
+
+    <div class="box-title">Дополнительные данные (необязательно)</div>
+
+    <div class="row">
+      <label for="effort_level">Интенсивность</label>
+      <select id="effort_level">
+        <option value="">Не выбрано</option>
+        <option value="easy">Легко</option>
+        <option value="steady">Умеренно</option>
+        <option value="race">Соревнование</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <label for="humidity_pct">Влажность (%)</label>
+      <input id="humidity_pct" type="number" min="0" max="100" placeholder="Например: 68" />
+    </div>
+
+    <div class="row">
+      <label for="distance_km">Дистанция (км)</label>
+      <input id="distance_km" type="number" min="0" max="500" step="0.1" placeholder="Например: 50" />
+    </div>
+
+    <div class="row">
+      <label for="sweat_rate_lph">Потоотделение (л/ч)</label>
+      <input id="sweat_rate_lph" type="number" min="0" max="5" step="0.1" placeholder="Например: 0.8" />
+    </div>
+
+    <div class="row">
+      <label for="elevation_gain_m">Набор высоты (м)</label>
+      <input id="elevation_gain_m" type="number" min="0" max="20000" placeholder="Например: 1800" />
+    </div>
+
+    <div class="row">
+      <label for="sodium_loss_profile">Потери натрия</label>
+      <select id="sodium_loss_profile">
+        <option value="">Не выбрано</option>
+        <option value="low">Низкие</option>
+        <option value="medium">Средние</option>
+        <option value="high">Высокие</option>
+        <option value="unknown">Не знаю</option>
+      </select>
+    </div>
+
     <button id="calc-btn" type="button">Рассчитать</button>
   </div>
 
@@ -227,6 +272,14 @@
     const temperatureEl = document.getElementById("temperature_c");
     const fuelFormatEl = document.getElementById("fuel_format");
     const giToleranceEl = document.getElementById("gi_tolerance_level");
+
+    const effortLevelEl = document.getElementById("effort_level");
+    const humidityEl = document.getElementById("humidity_pct");
+    const distanceEl = document.getElementById("distance_km");
+    const sweatRateEl = document.getElementById("sweat_rate_lph");
+    const elevationEl = document.getElementById("elevation_gain_m");
+    const sodiumLossProfileEl = document.getElementById("sodium_loss_profile");
+
     const calcBtn = document.getElementById("calc-btn");
 
     const errorsBoxEl = document.getElementById("errors-box");
@@ -429,7 +482,14 @@
         weight_kg: parseNumberOrNull(weightEl.value),
         temperature_c: parseNumberOrNull(temperatureEl.value),
         fuel_format: fuelFormatEl.value,
-        gi_tolerance_level: giToleranceEl.value
+        gi_tolerance_level: giToleranceEl.value,
+
+        effort_level: effortLevelEl.value || null,
+        humidity_pct: parseNumberOrNull(humidityEl.value),
+        distance_km: parseNumberOrNull(distanceEl.value),
+        sweat_rate_lph: parseNumberOrNull(sweatRateEl.value),
+        elevation_gain_m: parseNumberOrNull(elevationEl.value),
+        sodium_loss_profile: sodiumLossProfileEl.value || null
       };
 
       try {
