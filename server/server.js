@@ -9,6 +9,32 @@ app.use(cors({
 }));
 app.use(express.json());
 
+const metrics = {
+  started_at: new Date().toISOString(),
+  counters: {
+    miniapp_open: 0,
+    auth_success: 0,
+    calc_success: 0,
+    calc_validation_error: 0
+  }
+};
+
+function incrementMetric(eventName, extra = {}) {
+  if (!Object.prototype.hasOwnProperty.call(metrics.counters, eventName)) {
+    metrics.counters[eventName] = 0;
+  }
+
+  metrics.counters[eventName] += 1;
+
+  console.log(JSON.stringify({
+    type: "metric_event",
+    event: eventName,
+    count: metrics.counters[eventName],
+    ts: new Date().toISOString(),
+    ...extra
+  }));
+}
+
 function validateTelegramInitData(initData, botToken) {
   const params = new URLSearchParams(initData);
   const hash = params.get("hash");
@@ -115,6 +141,14 @@ app.get("/health", (req, res) => {
   res.json({ ok: true, ts: Date.now() });
 });
 
+// simple metrics view
+app.get("/api/metrics", (req, res) => {
+  res.json({
+    ok: true,
+    metrics
+  });
+});
+
 // auth with Telegram initData validation
 app.post("/api/auth", (req, res) => {
   const initData = String(req.body?.initData || "");
@@ -139,6 +173,10 @@ app.post("/api/auth", (req, res) => {
   if (!result.ok) {
     return res.status(401).json(result);
   }
+
+  incrementMetric("auth_success", {
+    has_user: Boolean(result.user)
+  });
 
   return res.json({
     ok: true,
@@ -241,6 +279,10 @@ app.post("/api/calc", (req, res) => {
   }
 
   if (errors.length > 0) {
+    incrementMetric("calc_validation_error", {
+      error_count: errors.length
+    });
+
     return res.status(400).json({
       ok: false,
       errors,
@@ -327,6 +369,12 @@ app.post("/api/calc", (req, res) => {
   const displaySodiumPerHourMg = Math.round(sodiumPerHourMg);
   const displaySodiumPerIntakeMg = Math.round(sodiumPerIntakeMg);
   const displaySodiumTotalMg = Math.round(sodiumTotalMg);
+
+  incrementMetric("calc_success", {
+    race_type: normalizedInput.race_type,
+    duration_min: normalizedInput.duration_min,
+    used_sweat_rate: normalizedInput.sweat_rate_lph !== null
+  });
 
   return res.json({
     ok: true,
