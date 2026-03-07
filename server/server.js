@@ -333,6 +333,22 @@ if (
     if (normalizedInput.gi_tolerance_level === "high") carbsPerHour = 90;
   }
 
+  if (normalizedInput.effort_level === "easy") {
+    carbsPerHour -= 15;
+  }
+
+  if (normalizedInput.effort_level === "race") {
+    carbsPerHour += 15;
+  }
+
+  if (carbsPerHour < 0) {
+    carbsPerHour = 0;
+  }
+
+  if (carbsPerHour > 90) {
+    carbsPerHour = 90;
+  }
+
   let carbIntervalMin = 30;
   if (carbsPerHour > 45 && carbsPerHour <= 75) carbIntervalMin = 20;
   if (carbsPerHour > 75) carbIntervalMin = 15;
