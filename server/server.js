@@ -224,7 +224,7 @@ app.post("/api/calc", (req, res) => {
     temperature_c: toNullableNumber(input.temperature_c),
     fuel_format: input.fuel_format ?? null,
     gi_tolerance_level: input.gi_tolerance_level ?? null,
-    effort_level: input.effort_level ?? "race",
+    effort_level: input.effort_level ?? null,
     humidity_pct: toNullableNumber(input.humidity_pct),
     distance_km: toNullableNumber(input.distance_km),
     sweat_rate_lph: toNullableNumber(input.sweat_rate_lph),
@@ -258,6 +258,18 @@ app.post("/api/calc", (req, res) => {
   if (!["low", "medium", "high"].includes(normalizedInput.gi_tolerance_level)) {
     errors.push("Выбери корректную переносимость углеводов: низкая, средняя или высокая.");
   }
+  if (
+  normalizedInput.effort_level !== null &&
+  !["easy", "steady", "race"].includes(normalizedInput.effort_level)
+) {
+  errors.push("Выбери корректную интенсивность: легко, умеренно или соревнование.");
+}
+if (
+  normalizedInput.sodium_loss_profile !== null &&
+  !["low", "medium", "high", "unknown"].includes(normalizedInput.sodium_loss_profile)
+) {
+  errors.push("Выбери корректный профиль потерь натрия: низкие, средние, высокие или не знаю.");
+}
 
   if (
     normalizedInput.humidity_pct !== null &&
