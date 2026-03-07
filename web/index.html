@@ -483,6 +483,26 @@
     `;
   }
 
+  async function trackMiniappOpen() {
+    if (!tg) {
+      return;
+    }
+
+    try {
+      await fetch("https://race-nutrition-miniapp.onrender.com/api/track-open", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          source: "telegram_webapp"
+        })
+      });
+    } catch (err) {
+      console.log("track-open error", err);
+    }
+  }
+
   async function checkTelegramAuth() {
     if (!tg) {
       authStatusText = "auth: вне Telegram";
@@ -579,6 +599,7 @@
     }
   });
 
+  trackMiniappOpen();
   checkTelegramAuth();
 </script>
 </body>
