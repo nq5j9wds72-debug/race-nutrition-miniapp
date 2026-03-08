@@ -103,15 +103,39 @@ function isInRange(value, min, max) {
 function calculateFluidPerHourMl(normalizedInput) {
   const sweatRateLph = normalizedInput.sweat_rate_lph;
   const temperatureC = normalizedInput.temperature_c;
+  const humidityPct = normalizedInput.humidity_pct;
 
   if (Number.isFinite(sweatRateLph)) {
     return sweatRateLph * 1000 * 0.7;
   }
 
-  if (temperatureC < 10) return 400;
-  if (temperatureC <= 19) return 500;
-  if (temperatureC <= 29) return 650;
-  return 800;
+  let baseFluidMlPerHour;
+
+  if (temperatureC < 10) {
+    baseFluidMlPerHour = 400;
+  } else if (temperatureC <= 19) {
+    baseFluidMlPerHour = 500;
+  } else if (temperatureC <= 29) {
+    baseFluidMlPerHour = 650;
+  } else {
+    baseFluidMlPerHour = 800;
+  }
+
+  if (!Number.isFinite(humidityPct)) {
+    return baseFluidMlPerHour;
+  }
+
+  let humidityModifier = 1;
+
+  if (humidityPct >= 80) {
+    humidityModifier = 1.1;
+  } else if (humidityPct >= 60) {
+    humidityModifier = 1.05;
+  } else if (humidityPct <= 30) {
+    humidityModifier = 0.95;
+  }
+
+  return Math.round(baseFluidMlPerHour * humidityModifier);
 }
 
 function getSodiumConcentrationMgL(temperatureC) {
