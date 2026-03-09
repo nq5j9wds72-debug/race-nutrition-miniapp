@@ -160,6 +160,29 @@ function formatDurationHuman(durationMin) {
   return `${minutes} мин`;
 }
 
+function getElevationCarbModifier(normalizedInput) {
+  const elevationGainM = normalizedInput.elevation_gain_m;
+  const raceType = normalizedInput.race_type;
+
+  if (!Number.isFinite(elevationGainM)) {
+    return 0;
+  }
+
+  if (!["trail", "ultra"].includes(raceType)) {
+    return 0;
+  }
+
+  if (elevationGainM >= 1500) {
+    return 10;
+  }
+
+  if (elevationGainM >= 500) {
+    return 5;
+  }
+
+  return 0;
+}
+
 // health check
 app.get("/health", (req, res) => {
   res.json({ ok: true, ts: Date.now() });
@@ -282,18 +305,20 @@ app.post("/api/calc", (req, res) => {
   if (!["low", "medium", "high"].includes(normalizedInput.gi_tolerance_level)) {
     errors.push("Выбери корректную переносимость углеводов: низкая, средняя или высокая.");
   }
+
   if (
-  normalizedInput.effort_level !== null &&
-  !["easy", "steady", "race"].includes(normalizedInput.effort_level)
-) {
-  errors.push("Выбери корректную интенсивность: легко, умеренно или соревнование.");
-}
-if (
-  normalizedInput.sodium_loss_profile !== null &&
-  !["low", "medium", "high", "unknown"].includes(normalizedInput.sodium_loss_profile)
-) {
-  errors.push("Выбери корректный профиль потерь натрия: низкие, средние, высокие или не знаю.");
-}
+    normalizedInput.effort_level !== null &&
+    !["easy", "steady", "race"].includes(normalizedInput.effort_level)
+  ) {
+    errors.push("Выбери корректную интенсивность: легко, умеренно или соревнование.");
+  }
+
+  if (
+    normalizedInput.sodium_loss_profile !== null &&
+    !["low", "medium", "high", "unknown"].includes(normalizedInput.sodium_loss_profile)
+  ) {
+    errors.push("Выбери корректный профиль потерь натрия: низкие, средние, высокие или не знаю.");
+  }
 
   if (
     normalizedInput.humidity_pct !== null &&
@@ -365,6 +390,9 @@ if (
     carbsPerHour += 15;
   }
 
+  const elevationCarbModifier = getElevationCarbModifier(normalizedInput);
+  carbsPerHour += elevationCarbModifier;
+
   if (carbsPerHour < 0) {
     carbsPerHour = 0;
   }
@@ -385,7 +413,7 @@ if (
   const gelsPerHourEst = carbsPerHour / gelBasisG;
   const gelsTotalEst = carbsTotal / gelBasisG;
 
-    let avgSpeedKmh = null;
+  let avgSpeedKmh = null;
 
   if (normalizedInput.distance_km !== null && durationHours > 0) {
     avgSpeedKmh = normalizedInput.distance_km / durationHours;
@@ -400,13 +428,13 @@ if (
   }
 
   if (
-  normalizedInput.race_type === "road" &&
-  normalizedInput.distance_km !== null &&
-  normalizedInput.distance_km <= 21.1 &&
-  durationMin >= 300
-) {
-  warnings.push("Проверь дистанцию, длительность и тип гонки: для road такой сценарий выглядит необычно.");
-}
+    normalizedInput.race_type === "road" &&
+    normalizedInput.distance_km !== null &&
+    normalizedInput.distance_km <= 21.1 &&
+    durationMin >= 300
+  ) {
+    warnings.push("Проверь дистанцию, длительность и тип гонки: для road такой сценарий выглядит необычно.");
+  }
 
   if (carbsPerHour >= 75) {
     warnings.push("Высокий план по углеводам лучше заранее протестировать на тренировке.");
