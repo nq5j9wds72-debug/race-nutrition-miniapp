@@ -75,10 +75,11 @@ MVP v1 мини-приложения Telegram для расчёта питани
 
 ## Текущий этап
 
-- Фактически завершён День 20
-- Следующий рабочий день: День 21
+- Фактически завершён День 21
+- Следующий рабочий день: День 22
 - День 19 был посвящён честному подключению `distance_km` к sanity-check warnings
 - День 20 был посвящён честному подключению `elevation_gain_m` к carbs без поломки baseline-логики
+- День 21 был посвящён честному подключению `sodium_loss_profile` к sodium без изменения carbs и fluid
 
 ## Финальная проверка текущего состояния
 
@@ -96,7 +97,9 @@ MVP v1 мини-приложения Telegram для расчёта питани
 - `distance_km` влияет на warnings по средней скорости
 - `race_type + distance_km + duration_min` могут давать warning для необычного road-сценария
 - `elevation_gain_m` влияет на carbs для `trail / ultra`
-- production backend и локальный backend показывают одинаковый результат по кейсу Дня 20
+- `sodium_loss_profile = low / medium / high` влияет на sodium
+- `sodium_loss_profile = unknown` даёт отдельный warning без изменения maths
+- production backend и локальный backend показывают одинаковый результат по кейсам Дня 21
 
 ---
 
@@ -108,7 +111,7 @@ MVP v1 мини-приложения Telegram для расчёта питани
 
 - **carbs** = от `duration_min + gi_tolerance_level + effort_level + elevation_gain_m`
 - **fluid** = от `sweat_rate_lph`, а если его нет — от `temperature_c` с мягкой корректировкой по `humidity_pct`
-- **sodium** = от `temperature_c` через sodium concentration и от рассчитанной жидкости
+- **sodium** = от `temperature_c` через sodium concentration, от рассчитанной жидкости и от `sodium_loss_profile`
 - **gel equivalent** = от уже рассчитанных углеводов
 
 ### Что уже есть в форме, но ещё не подключено к maths
@@ -119,7 +122,6 @@ MVP v1 мини-приложения Telegram для расчёта питани
 - `weight_kg`
 - `distance_km`
 - `fuel_format`
-- `sodium_loss_profile`
 
 ### Что уже не является декоративным
 
@@ -130,6 +132,7 @@ MVP v1 мини-приложения Telegram для расчёта питани
 - `distance_km` → влияет на sanity-check warnings
 - `race_type` → участвует в road-specific warning
 - `elevation_gain_m` → влияет на carbs для `trail / ultra`
+- `sodium_loss_profile` → влияет на sodium или warnings в зависимости от значения
 
 ### Что нельзя обещать пользователю как уже работающую “умную модель”
 
@@ -137,11 +140,13 @@ MVP v1 мини-приложения Telegram для расчёта питани
 
 - `weight_kg`
 - `distance_km` как прямой множитель formulas
-- `sodium_loss_profile`
+- `race_type` как прямой множитель formulas
+- `fuel_format` как прямой множитель formulas
 
 То есть:
 - `distance_km` уже влияет на warnings, но ещё не участвует напрямую в maths
-- `sodium_loss_profile` уже валидируется, но пока не влияет на sodium maths
+- `race_type` уже участвует в части warnings и в логике elevation-модификатора, но не является отдельным прямым множителем основной модели
+- `fuel_format` уже влияет на warnings, но не меняет formulas
 - `weight_kg` пока обязательное поле, но в формулах v1 фактически не участвует
 
 ---
@@ -256,397 +261,288 @@ MVP v1 мини-приложения Telegram для расчёта питани
   - только как умеренный модификатор carbs
 - `fluid` и `sodium` на Дне 20 не менялись
 
----
+### Что подтверждено после Дня 21
 
-## Что подтверждено тестами
-
-### Базовый кейс без humidity
-
-Вход:
-- `trail`
-- `6:00`
-- `72 кг`
-- `24°C`
-- `combo`
-- `medium`
-
-Результат:
-- `75 г углеводов/ч`
-- `650 мл жидкости/ч`
-- `455 мг натрия/ч`
-
-### Кейс `effort_level = easy`
-
-Результат:
-- `60 г углеводов/ч`
-- `650 мл жидкости/ч`
-- `455 мг натрия/ч`
-
-### Кейс `effort_level = steady`
-
-Результат:
-- `75 г углеводов/ч`
-- `650 мл жидкости/ч`
-- `455 мг натрия/ч`
-
-### Кейс `effort_level = race`
-
-Результат:
-- `90 г углеводов/ч`
-- `650 мл жидкости/ч`
-- `455 мг натрия/ч`
-- `carb_interval = 15 мин`
-
-### Кейс `humidity_pct = 30`
-
-Результат:
-- `75 г углеводов/ч`
-- `618 мл жидкости/ч`
-- `433 мг натрия/ч`
-
-### Кейс `humidity_pct = 70`
-
-Результат:
-- `75 г углеводов/ч`
-- `683 мл жидкости/ч`
-- `478 мг натрия/ч`
-
-### Кейс `humidity_pct = 90`
-
-Результат:
-- `75 г углеводов/ч`
-- `715 мл жидкости/ч`
-- `501 мг натрия/ч`
-
-### Кейс `humidity_pct = 90` и `sweat_rate_lph = 1.0`
-
-Результат:
-- `75 г углеводов/ч`
-- `700 мл жидкости/ч`
-- `490 мг натрия/ч`
-
-Вывод:
-- влажность влияет только на fallback-модель жидкости
-- `sweat_rate_lph` сохраняет главный приоритет
-- sodium меняется только как следствие изменения жидкости
-
-### Кейс `distance_km = 5`, `duration_min = 360`
-
-Результат:
-- появляется warning:
-  - `Проверь дистанцию и длительность: средняя скорость получилась слишком низкой.`
-
-### Кейс `distance_km = 30`, `duration_min = 60`
-
-Результат:
-- появляется warning:
-  - `Проверь дистанцию и длительность: средняя скорость получилась слишком высокой.`
-
-### Кейс `race_type = road`, `distance_km = 15`, `duration_min = 360`
-
-Результат:
-- появляется warning:
-  - `Проверь дистанцию, длительность и тип гонки: для road такой сценарий выглядит необычно.`
-
-### Кейс Дня 20: `trail`, `6:00`, `medium`, `steady`, `distance_km = 50`, `elevation_gain_m = 0`
-
-Результат:
-- `75 г углеводов/ч`
-- `500 мл жидкости/ч`
-- `250 мг натрия/ч`
-
-### Кейс Дня 20: `trail`, `6:00`, `medium`, `steady`, `distance_km = 50`, `elevation_gain_m = 1800`
-
-Результат:
-- `85 г углеводов/ч`
-- `500 мл жидкости/ч`
-- `250 мг натрия/ч`
-
-Вывод:
-- `elevation_gain_m` реально меняет carbs
-- на этом шаге `fluid` и `sodium` не меняются
-- baseline-кейс не сломан
-- production и локальный результат совпали
+- `sodium_loss_profile` реально подключён к sodium
+- модификатор работает через `sodium_concentration_mg_l`
+- логика сейчас такая:
+  - `low` → `-150 мг/л`
+  - `medium` → `0`
+  - `high` → `+150 мг/л`
+  - `unknown` → без изменения maths
+  - `null` → без изменения maths
+- добавлены пределы:
+  - минимум `300 мг/л`
+  - максимум `1100 мг/л`
+- при `sodium_loss_profile = unknown` добавляется warning:
+  - `Профиль потерь натрия не указан точно: план по натрию лучше проверить на тренировке.`
 
 ---
 
-## Что реально валидируется на сервере сейчас
+## Текущая серверная логика подробнее
 
-### Обязательные поля
+### Carbs base
 
-- `race_type` → `road / trail / ultra`
-- `duration_min` → `30..2160`
-- `weight_kg` → `35..150`
-- `temperature_c` → `-20..45`
-- `fuel_format` → `drink_only / gels / combo`
-- `gi_tolerance_level` → `low / medium / high`
+#### Если длительность < 60 мин
 
-### Optional-поля
+- `low` = `0 г/ч`
+- `medium` = `15 г/ч`
+- `high` = `30 г/ч`
 
-- `effort_level` → `null` или `easy / steady / race`
-- `humidity_pct` → `0..100`
-- `distance_km` → `1..300`
-- `sweat_rate_lph` → `0.2..2.5`
-- `elevation_gain_m` → `0..20000`
-- `sodium_loss_profile` → `null` или `low / medium / high / unknown`
+#### Если длительность 60–150 мин
 
-### Отдельно важно
+- `low` = `30 г/ч`
+- `medium` = `45 г/ч`
+- `high` = `60 г/ч`
 
-- `effort_level` больше не превращается скрыто в `race`
-- `sodium_loss_profile` валидируется отдельно
-- `distance_km` валидируется и влияет на warnings
-- `elevation_gain_m` валидируется и влияет на carbs
-- `sodium_loss_profile` пока ещё не влияет на maths
+#### Если длительность > 150 мин
 
----
+- `low` = `60 г/ч`
+- `medium` = `75 г/ч`
+- `high` = `90 г/ч`
 
-## Таблица input-полей — фактическое поведение
+### Effort modifier
 
-| field_name | есть в форме | приходит на сервер | валидируется сейчас | влияет на maths сейчас | влияет на warnings сейчас | note |
-|---|---|---|---|---|---|---|
-| `race_type` | да | да | да | нет | да | обязательное поле; сейчас в maths не участвует, но участвует в road-warning |
-| `duration_min` | да | да | да | да | да | собирается на фронте из `duration_hours + duration_minutes` |
-| `weight_kg` | да | да | да | нет | нет | сейчас обязательное, но в формулах v1 фактически не участвует |
-| `temperature_c` | да | да | да | да | да | влияет на fluid fallback и sodium concentration |
-| `fuel_format` | да | да | да | нет | да | влияет не на формулу, а на warnings |
-| `gi_tolerance_level` | да | да | да | да | нет | один из главных драйверов блока carbs |
-| `effort_level` | да | да | да | да | нет | optional-поле; если пусто, остаётся `null` |
-| `humidity_pct` | да | да | да | да | нет | влияет только на fluid fallback, если `sweat_rate_lph` не задан |
-| `distance_km` | да | да | да | нет | да | сейчас не влияет на maths напрямую, но влияет на sanity-check warnings |
-| `sweat_rate_lph` | да | да | да | да | да | если задано, имеет приоритет в блоке fluid |
-| `elevation_gain_m` | да | да | да | да | нет | влияет на carbs для `trail / ultra` |
-| `sodium_loss_profile` | да | да | да | нет | нет | отдельно валидируется, но пока не влияет на maths |
+- `null` = `0`
+- `easy` = `-15 г/ч`
+- `steady` = `0`
+- `race` = `+15 г/ч`
 
-### Короткая расшифровка статусов
+### Elevation modifier
 
-- **влияет на maths сейчас** = меняет численный расчёт
-- **влияет на warnings сейчас** = не меняет формулу, но меняет предупреждения
+Работает только для `trail / ultra`:
 
----
+- `< 500 м` = `+0 г/ч`
+- `500–1499 м` = `+5 г/ч`
+- `1500+ м` = `+10 г/ч`
 
-## Формульная карта v1 — что реально считает `server/server.js` сейчас
+### Carbs clamp
 
-### 1. Блок carbs
+- минимум `0 г/ч`
+- максимум `90 г/ч`
 
-#### Реально используемые input
+### Carb interval
 
-- `duration_min`
-- `gi_tolerance_level`
-- `effort_level`
-- `elevation_gain_m`
+- по умолчанию `30 мин`
+- если `>45` и `<=75 г/ч` → `20 мин`
+- если `>75 г/ч` → `15 мин`
 
-#### Базовая логика
-
-- если `duration_min < 60`:
-  - `low` → `0 г/ч`
-  - `medium` → `15 г/ч`
-  - `high` → `30 г/ч`
-
-- если `duration_min >= 60` и `duration_min <= 150`:
-  - `low` → `30 г/ч`
-  - `medium` → `45 г/ч`
-  - `high` → `60 г/ч`
-
-- если `duration_min > 150`:
-  - `low` → `60 г/ч`
-  - `medium` → `75 г/ч`
-  - `high` → `90 г/ч`
-
-#### Модификатор `effort_level`
-
-- `null` → `0`
-- `easy` → `-15`
-- `steady` → `0`
-- `race` → `+15`
-
-#### Модификатор `elevation_gain_m`
-
-Работает только для `trail / ultra`.
-
-- если `elevation_gain_m < 500` → `+0`
-- если `elevation_gain_m >= 500` и `< 1500` → `+5`
-- если `elevation_gain_m >= 1500` → `+10`
-
-Для `road`:
-- `elevation_gain_m` сейчас даёт `+0`
-
-#### Ограничения
-
-- ниже `0 г/ч` не уходим
-- выше `90 г/ч` не поднимаемся
-
-#### Производные значения
-
-- `carb_interval_min`
-  - по умолчанию `30`
-  - если `carbs_per_hour_g > 45` и `carbs_per_hour_g <= 75` → `20`
-  - если `carbs_per_hour_g > 75` → `15`
-
-- `carbs_total_g = carbs_per_hour_g * duration_hours`
-- `carbs_per_intake_g = carbs_per_hour_g / (60 / carb_interval_min)`
-
-#### Что сейчас не влияет на carbs
-
-- `race_type`
-- `weight_kg`
-- `temperature_c`
-- `fuel_format`
-- `humidity_pct`
-- `distance_km`
-- `sweat_rate_lph`
-- `sodium_loss_profile`
-
-#### Что влияет только на warnings вокруг carbs
-
-- `fuel_format = drink_only`
-- высокий `carbs_per_hour_g`
-
----
-
-### 2. Блок fluid
-
-#### Реально используемые input
-
-- `sweat_rate_lph`, если задан
-- иначе `temperature_c`
-- и `humidity_pct` как мягкий модификатор fallback-оценки
-
-#### Логика
+### Fluid
 
 Если задан `sweat_rate_lph`:
 
 - `fluid_per_hour_ml = sweat_rate_lph * 1000 * 0.7`
 
-Если `sweat_rate_lph` не задан:
+Если `sweat_rate_lph` не задан, используется fallback по температуре:
 
-- `temperature_c < 10` → `400 мл/ч`
-- `temperature_c >= 10` и `temperature_c <= 19` → `500 мл/ч`
-- `temperature_c >= 20` и `temperature_c <= 29` → `650 мл/ч`
-- `temperature_c >= 30` → `800 мл/ч`
+- `<10°C` → `400 мл/ч`
+- `10–19°C` → `500 мл/ч`
+- `20–29°C` → `650 мл/ч`
+- `>=30°C` → `800 мл/ч`
 
-После этого, только для fallback-модели:
+Потом, только если `sweat_rate_lph` не задан и задан `humidity_pct`:
 
-- `humidity_pct >= 80` → `+10%`
-- `humidity_pct >= 60` → `+5%`
-- `humidity_pct <= 30` → `-5%`
+- `humidity_pct >= 80` → `*1.10`
+- `humidity_pct >= 60` → `*1.05`
+- `humidity_pct <= 30` → `*0.95`
 - иначе → без изменений
 
-Итог:
-- если `humidity_pct` не задан, остаётся базовый temperature-based результат
-- если `sweat_rate_lph` задан, влажность не вмешивается
+Результат округляется через `Math.round`.
 
-#### Производные значения
+### Sodium concentration
 
-- `fluid_total_ml = fluid_per_hour_ml * duration_hours`
-- `fluid_interval_min = 15`
-- `fluid_per_intake_ml = fluid_per_hour_ml / 4`
+База по температуре:
 
-#### Что сейчас не влияет на fluid
+- `>=30°C` → `900 мг/л`
+- `20–29°C` → `700 мг/л`
+- `<20°C` → `500 мг/л`
 
-- `race_type`
-- `weight_kg`
-- `fuel_format`
-- `gi_tolerance_level`
-- `effort_level`
-- `distance_km`
-- `elevation_gain_m`
-- `sodium_loss_profile`
+Потом применяется модификатор `sodium_loss_profile`:
 
-#### Что влияет только на warnings вокруг fluid
+- `low` → `-150 мг/л`
+- `medium` → `0`
+- `high` → `+150 мг/л`
+- `unknown` → `0`
+- `null` → `0`
 
-- отсутствие `sweat_rate_lph` при `temperature_c >= 20`
-- очень длинная гонка
+После этого действует clamp:
 
----
+- минимум `300 мг/л`
+- максимум `1100 мг/л`
 
-### 3. Блок sodium
+### Fluid interval
 
-#### Реально используемые input
+- всегда `15 мин`
 
-- `temperature_c`
-- уже рассчитанный `fluid_per_hour_ml`
+### Sodium interval
 
-#### Логика по sodium concentration
+- всегда `15 мин`
 
-- `temperature_c >= 30` → `900 мг/л`
-- `temperature_c >= 20` и `temperature_c <= 29` → `700 мг/л`
-- `temperature_c < 20` → `500 мг/л`
+### Gel basis
 
-#### Производные значения
-
-- `sodium_per_hour_mg = (fluid_per_hour_ml / 1000) * sodium_concentration_mg_l`
-- `sodium_total_mg = sodium_per_hour_mg * duration_hours`
-- `sodium_interval_min = 15`
-- `sodium_per_intake_mg = sodium_per_hour_mg / 4`
-
-#### Что сейчас не влияет на sodium напрямую
-
-- `race_type`
-- `weight_kg`
-- `fuel_format`
-- `gi_tolerance_level`
-- `effort_level`
-- `distance_km`
-- `elevation_gain_m`
-- `sodium_loss_profile`
-
-#### Что влияет косвенно
-
-- `sweat_rate_lph` влияет на fluid
-- `humidity_pct` влияет на fluid fallback, если `sweat_rate_lph` не задан
-- fluid влияет на sodium
+- `1 гель = 25 г углеводов`
 
 ---
 
-### 4. Блок gel equivalent
+## Что сейчас валидируется на сервере
 
-#### Реально используемые input
+### Обязательные поля
 
-- результат блока carbs
+- `race_type`: `road / trail / ultra`
+- `duration_min`: `30–2160`
+- `weight_kg`: `35–150`
+- `temperature_c`: `-20..45`
+- `fuel_format`: `drink_only / gels / combo`
+- `gi_tolerance_level`: `low / medium / high`
 
-#### Логика
+### Optional-поля
 
-- `gel_basis_g = 25`
-- `gels_per_hour_est = carbs_per_hour_g / 25`
-- `gels_total_est = carbs_total_g / 25`
+- `effort_level`:
+  - `null` или `easy / steady / race`
+- `humidity_pct`: `0–100`
+- `distance_km`: `1–300`
+- `sweat_rate_lph`: `0.2–2.5`
+- `elevation_gain_m`: `0–20000`
+- `sodium_loss_profile`:
+  - `null` или `low / medium / high / unknown`
+
+### Что важно
+
+- `effort_level` больше не превращается скрыто в `race`
+- `distance_km` валидируется и участвует в warnings
+- `elevation_gain_m` валидируется и участвует в carbs
+- `sodium_loss_profile` валидируется и теперь участвует в sodium или warnings
+- `weight_kg` пока обязательное поле, но в maths не участвует
 
 ---
 
-## Warnings — что подтверждено сейчас
+## Что подтверждено по warnings в текущем backend
 
-Сейчас warnings зависят от таких условий:
+### Sanity-check warnings
 
-- если `avgSpeedKmh < 2`
-  - warning про слишком низкую среднюю скорость
-- если `avgSpeedKmh > 25`
-  - warning про слишком высокую среднюю скорость
-- если `race_type = road` и `distance_km <= 21.1` и `duration_min >= 300`
-  - warning про необычный road-сценарий
-- если `carbs_per_hour_g >= 75`
-  - warning про высокий план по углеводам
-- если `fuel_format = drink_only` и `carbs_per_hour > 60`
-  - warning про неудобство набора углеводов только напитком
-- если `sweat_rate_lph` не задан и `temperature_c >= 20`
-  - warning про низкую точность расчёта жидкости
-- если `duration_min > 720`
-  - warning про очень длинную гонку
-- всегда добавляется warning:
-  - `Натрий — это ориентир, а не защита от перепивания.`
+Если `avgSpeedKmh < 2`:
+- `Проверь дистанцию и длительность: средняя скорость получилась слишком низкой.`
+
+Если `avgSpeedKmh > 25`:
+- `Проверь дистанцию и длительность: средняя скорость получилась слишком высокой.`
+
+Если:
+- `race_type = road`
+- `distance_km <= 21.1`
+- `duration_min >= 300`
+
+то:
+- `Проверь дистанцию, длительность и тип гонки: для road такой сценарий выглядит необычно.`
+
+### Practical warnings
+
+Если `carbs_per_hour >= 75`:
+- `Высокий план по углеводам лучше заранее протестировать на тренировке.`
+
+Если `fuel_format = drink_only` и `carbs_per_hour > 60`:
+- `Только напитком такой объём углеводов набрать может быть неудобно.`
+
+Если `sweat_rate_lph` не задан и `temperature_c >= 20`:
+- `В жару без данных о вашей потливости точность расчёта жидкости ниже.`
+
+Если `duration_min > 720`:
+- `Очень длинная гонка: расчёт носит ориентировочный характер и требует проверки на практике.`
+
+Если `sodium_loss_profile = unknown`:
+- `Профиль потерь натрия не указан точно: план по натрию лучше проверить на тренировке.`
+
+Всегда добавляется:
+- `Натрий — это ориентир, а не защита от перепивания.`
+
+---
+
+## Проверочные кейсы
+
+### Кейс Дня 20 — baseline для elevation
+
+Вход:
+- `race_type = trail`
+- `duration_min = 360`
+- `weight_kg = 72`
+- `temperature_c = 18`
+- `fuel_format = combo`
+- `gi_tolerance_level = medium`
+- `effort_level = steady`
+- `distance_km = 50`
+- `elevation_gain_m = 1800`
+
+Результат:
+- `carbs = 85 г/ч`
+- `fluid = 500 мл/ч`
+- `sodium = 250 мг/ч`
+
+### Кейс Дня 21 — sodium_loss_profile = low
+
+Вход:
+- тот же кейс
+- `sodium_loss_profile = low`
+
+Результат:
+- `carbs = 85 г/ч`
+- `fluid = 500 мл/ч`
+- `sodium = 175 мг/ч`
+
+### Кейс Дня 21 — sodium_loss_profile = high
+
+Вход:
+- тот же кейс
+- `sodium_loss_profile = high`
+
+Результат:
+- `carbs = 85 г/ч`
+- `fluid = 500 мл/ч`
+- `sodium = 325 мг/ч`
+
+### Кейс Дня 21 — sodium_loss_profile = unknown
+
+Вход:
+- тот же кейс
+- `sodium_loss_profile = unknown`
+
+Результат:
+- `carbs = 85 г/ч`
+- `fluid = 500 мл/ч`
+- `sodium = 250 мг/ч`
+- дополнительно появляется warning про неопределённый профиль потерь натрия
+
+### Что важно по тестам
+
+- baseline без `sodium_loss_profile` не сломан
+- `low / high` меняют только sodium
+- `unknown` не меняет maths, но меняет warnings
+- production backend и локальный backend совпали по результатам
+
+---
+
+## Что зафиксировано в git
+
+### День 20
+
+- `Day 20: add elevation effect on carbs`
+- `Day 20: update README for elevation and distance warnings`
+
+### День 21
+
+- `Day 21: connect sodium loss profile to sodium`
+- `Day 21: add warning for unknown sodium loss profile`
 
 ---
 
 ## Что зафиксировано и не меняем без отдельного решения
 
 - Это MVP v1
-- Сервер считает, фронт только красиво показывает
+- Сервер считает, frontend только красиво показывает
 - Всё, что видит пользователь, должно быть на русском языке
 - Не делаем большой редизайн
 - Не добавляем Figma
 - Не добавляем платежи
 - Не добавляем бренды гелей
 - Не переписываем работающий frontend и backend целиком без необходимости
-
----
 
 ## Что важно помнить отдельно
 
@@ -656,25 +552,43 @@ MVP v1 мини-приложения Telegram для расчёта питани
 - `BOT_TOKEN` обязателен для `/api/auth`
 - Текущий baseline-код проще, чем экспертная модель и план v1.1
 - GitHub-коннектор подключен
-- После каждого дня пользователь дополнительно обновляет 2 основных файла проекта:
-  - `web/index.html`
-  - `server/server.js`
+- Пользователь предпочитает очень маленькие шаги
+- Код удобнее давать полными блоками, а не мелкими кусками
 
----
+## Что есть как стратегический план дальше
 
-## Следующий шаг
+- Загружен отдельный master plan:
+  - `00_MASTER_PLAN_RACE_NUTRITION.md`
+- Главная логика плана:
+  - сначала убрать ложные обещания form ↔ server ↔ formulas
+  - потом усилить расчётное ядро
+  - потом добавить хранение данных
+  - потом упаковку и продажу
 
-Следующий рабочий этап — День 21.
+## Что есть как научно-методическая база
 
-Логика следующего шага:
-- не трогать форму без необходимости
-- не трогать БД
-- не делать редизайн
-- подключать следующий честный фактор по одному микрошагу
-- сохранять baseline-кейс рабочим
+- Загружен отдельный файл `Рекомендации эксперта`
+- В нём описана расширенная модель:
+  - carbs engine
+  - fluid engine
+  - sodium engine
+  - validation
+  - warnings
+  - JSON contract
 
-Приоритет:
-- сохранять честный контракт между form ↔ server ↔ maths
-- не добавлять в UI обещания, которых ещё нет в формулах
-- следующий кандидат на подключение:
-  - `sodium_loss_profile`
+Но важно:
+- это пока ориентир для развития
+- текущий `server/server.js` эту модель ещё не реализует полностью
+
+Не путать:
+- что рекомендует экспертный файл
+- и что реально работает сейчас в коде
+
+## Следующий логичный шаг
+
+- День 21 по backend уже синхронизирован
+- README после вставки тоже будет синхронизирован
+- Следующий рабочий день:
+  - День 22
+- Следующий честный кандидат на подключение к maths:
+  - `weight_kg` или следующий фактор из master plan
