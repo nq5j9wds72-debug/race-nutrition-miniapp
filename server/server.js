@@ -385,6 +385,20 @@ if (
   const gelsPerHourEst = carbsPerHour / gelBasisG;
   const gelsTotalEst = carbsTotal / gelBasisG;
 
+    let avgSpeedKmh = null;
+
+  if (normalizedInput.distance_km !== null && durationHours > 0) {
+    avgSpeedKmh = normalizedInput.distance_km / durationHours;
+  }
+
+  if (avgSpeedKmh !== null && avgSpeedKmh < 2) {
+    warnings.push("Проверь дистанцию и длительность: средняя скорость получилась слишком низкой.");
+  }
+
+  if (avgSpeedKmh !== null && avgSpeedKmh > 25) {
+    warnings.push("Проверь дистанцию и длительность: средняя скорость получилась слишком высокой.");
+  }
+  
   if (carbsPerHour >= 75) {
     warnings.push("Высокий план по углеводам лучше заранее протестировать на тренировке.");
   }
