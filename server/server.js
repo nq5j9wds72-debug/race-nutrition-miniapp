@@ -398,7 +398,16 @@ if (
   if (avgSpeedKmh !== null && avgSpeedKmh > 25) {
     warnings.push("Проверь дистанцию и длительность: средняя скорость получилась слишком высокой.");
   }
-  
+
+  if (
+  normalizedInput.race_type === "road" &&
+  normalizedInput.distance_km !== null &&
+  normalizedInput.distance_km <= 21.1 &&
+  durationMin >= 300
+) {
+  warnings.push("Проверь дистанцию, длительность и тип гонки: для road такой сценарий выглядит необычно.");
+}
+
   if (carbsPerHour >= 75) {
     warnings.push("Высокий план по углеводам лучше заранее протестировать на тренировке.");
   }
