@@ -3,6 +3,7 @@ const cors = require("cors");
 const crypto = require("crypto");
 
 const app = express();
+const FORMULA_VERSION = "v1.1";
 
 app.use(cors({
   origin: "https://race-nutrition-miniapp.pages.dev"
@@ -483,15 +484,15 @@ app.post("/api/calc", (req, res) => {
     warnings.push("В жару без данных о вашей потливости точность расчёта жидкости ниже.");
   }
 
-if (durationMin > 720) {
-  warnings.push("Очень длинная гонка: расчёт носит ориентировочный характер и требует проверки на практике.");
-}
+  if (durationMin > 720) {
+    warnings.push("Очень длинная гонка: расчёт носит ориентировочный характер и требует проверки на практике.");
+  }
 
-if (normalizedInput.sodium_loss_profile === "unknown") {
-  warnings.push("Профиль потерь натрия не указан точно: план по натрию лучше проверить на тренировке.");
-}
+  if (normalizedInput.sodium_loss_profile === "unknown") {
+    warnings.push("Профиль потерь натрия не указан точно: план по натрию лучше проверить на тренировке.");
+  }
 
-warnings.push("Натрий — это ориентир, а не защита от перепивания.");
+  warnings.push("Натрий — это ориентир, а не защита от перепивания.");
 
   const fluidPerHourMl = calculateFluidPerHourMl(normalizedInput);
   const fluidTotalMl = fluidPerHourMl * durationHours;
@@ -529,6 +530,7 @@ warnings.push("Натрий — это ориентир, а не защита о
 
   return res.json({
     ok: true,
+    formula_version: FORMULA_VERSION,
     errors: [],
     warnings,
     normalized_input: normalizedInput,
