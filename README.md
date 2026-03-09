@@ -69,15 +69,16 @@ MVP v1 мини-приложения Telegram для расчёта питани
 ## Основные файлы
 
 - `web/index.html` — frontend mini app
-- `server.js` — backend и расчётная логика
+- `server/server.js` — backend и расчётная логика
 - `README.md` — текущее состояние проекта и контракт правды
 - `00_MASTER_PLAN_RACE_NUTRITION.md` — план Дней 15–30
 
 ## Текущий этап
 
-- Фактически завершён День 18
-- Следующий рабочий день: День 19
-- День 18 был посвящён подключению `humidity_pct` к расчёту жидкости без поломки приоритета `sweat_rate_lph`
+- Фактически завершён День 20
+- Следующий рабочий день: День 21
+- День 19 был посвящён честному подключению `distance_km` к sanity-check warnings
+- День 20 был посвящён честному подключению `elevation_gain_m` к carbs без поломки baseline-логики
 
 ## Финальная проверка текущего состояния
 
@@ -92,7 +93,10 @@ MVP v1 мини-приложения Telegram для расчёта питани
 - `effort_level` влияет на carbs
 - `humidity_pct` влияет на fluid fallback
 - при наличии `sweat_rate_lph` влажность не перехватывает приоритет
-- production backend и mini app показывают одинаковый результат по кейсу Дня 18
+- `distance_km` влияет на warnings по средней скорости
+- `race_type + distance_km + duration_min` могут давать warning для необычного road-сценария
+- `elevation_gain_m` влияет на carbs для `trail / ultra`
+- production backend и локальный backend показывают одинаковый результат по кейсу Дня 20
 
 ---
 
@@ -100,9 +104,9 @@ MVP v1 мини-приложения Telegram для расчёта питани
 
 ### Что реально считает backend сейчас
 
-Сейчас `server.js` по факту считает так:
+Сейчас `server/server.js` по факту считает так:
 
-- **carbs** = от `duration_min + gi_tolerance_level + effort_level`
+- **carbs** = от `duration_min + gi_tolerance_level + effort_level + elevation_gain_m`
 - **fluid** = от `sweat_rate_lph`, а если его нет — от `temperature_c` с мягкой корректировкой по `humidity_pct`
 - **sodium** = от `temperature_c` через sodium concentration и от рассчитанной жидкости
 - **gel equivalent** = от уже рассчитанных углеводов
@@ -111,20 +115,34 @@ MVP v1 мини-приложения Telegram для расчёта питани
 
 Эти поля уже есть во frontend и приходят на сервер, но пока не влияют на реальную математику v1:
 
+- `race_type`
+- `weight_kg`
 - `distance_km`
-- `elevation_gain_m`
+- `fuel_format`
 - `sodium_loss_profile`
+
+### Что уже не является декоративным
+
+Эти поля уже реально влияют на поведение расчёта или warnings:
+
+- `effort_level` → влияет на carbs
+- `humidity_pct` → влияет на fluid fallback
+- `distance_km` → влияет на sanity-check warnings
+- `race_type` → участвует в road-specific warning
+- `elevation_gain_m` → влияет на carbs для `trail / ultra`
 
 ### Что нельзя обещать пользователю как уже работающую “умную модель”
 
 Пока нельзя утверждать, что в расчёте реально участвуют:
 
-- `race_type`
-- `distance_km`
-- `elevation_gain_m`
+- `weight_kg`
+- `distance_km` как прямой множитель formulas
 - `sodium_loss_profile`
 
-Они либо только валидируются, либо передаются на сервер, но ещё не включены в реальные формулы.
+То есть:
+- `distance_km` уже влияет на warnings, но ещё не участвует напрямую в maths
+- `sodium_loss_profile` уже валидируется, но пока не влияет на sodium maths
+- `weight_kg` пока обязательное поле, но в формулах v1 фактически не участвует
 
 ---
 
@@ -220,6 +238,24 @@ MVP v1 мини-приложения Telegram для расчёта питани
 - `humidity_pct` реально подключён к fluid fallback
 - при наличии `sweat_rate_lph` влажность не вмешивается в расчёт жидкости
 
+### Что подтверждено после Дня 19
+
+- `distance_km` реально подключён к sanity-check warnings
+- средняя скорость считается как:
+  - `avgSpeedKmh = distance_km / (duration_min / 60)`
+- добавлены warnings:
+  - слишком низкая средняя скорость
+  - слишком высокая средняя скорость
+  - необычный road-сценарий
+
+### Что подтверждено после Дня 20
+
+- `elevation_gain_m` реально подключён к carbs
+- это влияние пока узкое и безопасное:
+  - только для `trail / ultra`
+  - только как умеренный модификатор carbs
+- `fluid` и `sodium` на Дне 20 не менялись
+
 ---
 
 ## Что подтверждено тестами
@@ -294,6 +330,44 @@ MVP v1 мини-приложения Telegram для расчёта питани
 - `sweat_rate_lph` сохраняет главный приоритет
 - sodium меняется только как следствие изменения жидкости
 
+### Кейс `distance_km = 5`, `duration_min = 360`
+
+Результат:
+- появляется warning:
+  - `Проверь дистанцию и длительность: средняя скорость получилась слишком низкой.`
+
+### Кейс `distance_km = 30`, `duration_min = 60`
+
+Результат:
+- появляется warning:
+  - `Проверь дистанцию и длительность: средняя скорость получилась слишком высокой.`
+
+### Кейс `race_type = road`, `distance_km = 15`, `duration_min = 360`
+
+Результат:
+- появляется warning:
+  - `Проверь дистанцию, длительность и тип гонки: для road такой сценарий выглядит необычно.`
+
+### Кейс Дня 20: `trail`, `6:00`, `medium`, `steady`, `distance_km = 50`, `elevation_gain_m = 0`
+
+Результат:
+- `75 г углеводов/ч`
+- `500 мл жидкости/ч`
+- `250 мг натрия/ч`
+
+### Кейс Дня 20: `trail`, `6:00`, `medium`, `steady`, `distance_km = 50`, `elevation_gain_m = 1800`
+
+Результат:
+- `85 г углеводов/ч`
+- `500 мл жидкости/ч`
+- `250 мг натрия/ч`
+
+Вывод:
+- `elevation_gain_m` реально меняет carbs
+- на этом шаге `fluid` и `sodium` не меняются
+- baseline-кейс не сломан
+- production и локальный результат совпали
+
 ---
 
 ## Что реально валидируется на сервере сейчас
@@ -320,7 +394,9 @@ MVP v1 мини-приложения Telegram для расчёта питани
 
 - `effort_level` больше не превращается скрыто в `race`
 - `sodium_loss_profile` валидируется отдельно
-- `humidity_pct / distance_km / elevation_gain_m / sodium_loss_profile` не все участвуют в maths, даже если уже валидируются
+- `distance_km` валидируется и влияет на warnings
+- `elevation_gain_m` валидируется и влияет на carbs
+- `sodium_loss_profile` пока ещё не влияет на maths
 
 ---
 
@@ -328,7 +404,7 @@ MVP v1 мини-приложения Telegram для расчёта питани
 
 | field_name | есть в форме | приходит на сервер | валидируется сейчас | влияет на maths сейчас | влияет на warnings сейчас | note |
 |---|---|---|---|---|---|---|
-| `race_type` | да | да | да | нет | нет | обязательное поле, enum: `road / trail / ultra`; сейчас в maths и warnings не участвует |
+| `race_type` | да | да | да | нет | да | обязательное поле; сейчас в maths не участвует, но участвует в road-warning |
 | `duration_min` | да | да | да | да | да | собирается на фронте из `duration_hours + duration_minutes` |
 | `weight_kg` | да | да | да | нет | нет | сейчас обязательное, но в формулах v1 фактически не участвует |
 | `temperature_c` | да | да | да | да | да | влияет на fluid fallback и sodium concentration |
@@ -336,9 +412,9 @@ MVP v1 мини-приложения Telegram для расчёта питани
 | `gi_tolerance_level` | да | да | да | да | нет | один из главных драйверов блока carbs |
 | `effort_level` | да | да | да | да | нет | optional-поле; если пусто, остаётся `null` |
 | `humidity_pct` | да | да | да | да | нет | влияет только на fluid fallback, если `sweat_rate_lph` не задан |
-| `distance_km` | да | да | да | нет | нет | сейчас не влияет на maths |
+| `distance_km` | да | да | да | нет | да | сейчас не влияет на maths напрямую, но влияет на sanity-check warnings |
 | `sweat_rate_lph` | да | да | да | да | да | если задано, имеет приоритет в блоке fluid |
-| `elevation_gain_m` | да | да | да | нет | нет | есть, но пока не подключено |
+| `elevation_gain_m` | да | да | да | да | нет | влияет на carbs для `trail / ultra` |
 | `sodium_loss_profile` | да | да | да | нет | нет | отдельно валидируется, но пока не влияет на maths |
 
 ### Короткая расшифровка статусов
@@ -348,7 +424,7 @@ MVP v1 мини-приложения Telegram для расчёта питани
 
 ---
 
-## Формульная карта v1 — что реально считает server.js сейчас
+## Формульная карта v1 — что реально считает `server/server.js` сейчас
 
 ### 1. Блок carbs
 
@@ -357,6 +433,7 @@ MVP v1 мини-приложения Telegram для расчёта питани
 - `duration_min`
 - `gi_tolerance_level`
 - `effort_level`
+- `elevation_gain_m`
 
 #### Базовая логика
 
@@ -382,6 +459,17 @@ MVP v1 мини-приложения Telegram для расчёта питани
 - `steady` → `0`
 - `race` → `+15`
 
+#### Модификатор `elevation_gain_m`
+
+Работает только для `trail / ultra`.
+
+- если `elevation_gain_m < 500` → `+0`
+- если `elevation_gain_m >= 500` и `< 1500` → `+5`
+- если `elevation_gain_m >= 1500` → `+10`
+
+Для `road`:
+- `elevation_gain_m` сейчас даёт `+0`
+
 #### Ограничения
 
 - ниже `0 г/ч` не уходим
@@ -406,7 +494,6 @@ MVP v1 мини-приложения Telegram для расчёта питани
 - `humidity_pct`
 - `distance_km`
 - `sweat_rate_lph`
-- `elevation_gain_m`
 - `sodium_loss_profile`
 
 #### Что влияет только на warnings вокруг carbs
@@ -529,6 +616,12 @@ MVP v1 мини-приложения Telegram для расчёта питани
 
 Сейчас warnings зависят от таких условий:
 
+- если `avgSpeedKmh < 2`
+  - warning про слишком низкую среднюю скорость
+- если `avgSpeedKmh > 25`
+  - warning про слишком высокую среднюю скорость
+- если `race_type = road` и `distance_km <= 21.1` и `duration_min >= 300`
+  - warning про необычный road-сценарий
 - если `carbs_per_hour_g >= 75`
   - warning про высокий план по углеводам
 - если `fuel_format = drink_only` и `carbs_per_hour > 60`
@@ -565,21 +658,23 @@ MVP v1 мини-приложения Telegram для расчёта питани
 - GitHub-коннектор подключен
 - После каждого дня пользователь дополнительно обновляет 2 основных файла проекта:
   - `web/index.html`
-  - `server.js`
+  - `server/server.js`
 
 ---
 
 ## Следующий шаг
 
-Следующий рабочий этап — День 19.
+Следующий рабочий этап — День 21.
 
 Логика следующего шага:
 - не трогать форму без необходимости
 - не трогать БД
 - не делать редизайн
-- выбрать следующий честный фактор для подключения к maths
-- двигаться по одному микрошагу за раз
+- подключать следующий честный фактор по одному микрошагу
+- сохранять baseline-кейс рабочим
 
 Приоритет:
 - сохранять честный контракт между form ↔ server ↔ maths
 - не добавлять в UI обещания, которых ещё нет в формулах
+- следующий кандидат на подключение:
+  - `sodium_loss_profile`
