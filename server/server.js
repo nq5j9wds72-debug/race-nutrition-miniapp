@@ -138,10 +138,42 @@ function calculateFluidPerHourMl(normalizedInput) {
   return Math.round(baseFluidMlPerHour * humidityModifier);
 }
 
-function getSodiumConcentrationMgL(temperatureC) {
-  if (temperatureC >= 30) return 900;
-  if (temperatureC >= 20) return 700;
-  return 500;
+function getSodiumConcentrationMgL(temperatureC, sodiumLossProfile) {
+  let baseMgL;
+
+  if (temperatureC >= 30) {
+    baseMgL = 900;
+  } else if (temperatureC >= 20) {
+    baseMgL = 700;
+  } else {
+    baseMgL = 500;
+  }
+
+  let profileModifierMgL = 0;
+
+  if (sodiumLossProfile === "low") {
+    profileModifierMgL = -150;
+  } else if (sodiumLossProfile === "medium") {
+    profileModifierMgL = 0;
+  } else if (sodiumLossProfile === "high") {
+    profileModifierMgL = 150;
+  } else if (sodiumLossProfile === "unknown") {
+    profileModifierMgL = 0;
+  } else {
+    profileModifierMgL = 0;
+  }
+
+  const sodiumConcentrationMgL = baseMgL + profileModifierMgL;
+
+  if (sodiumConcentrationMgL < 300) {
+    return 300;
+  }
+
+  if (sodiumConcentrationMgL > 1100) {
+    return 1100;
+  }
+
+  return sodiumConcentrationMgL;
 }
 
 function roundTo5(value) {
@@ -462,7 +494,10 @@ app.post("/api/calc", (req, res) => {
   const fluidIntervalMin = 15;
   const fluidPerIntakeMl = fluidPerHourMl / 4;
 
-  const sodiumConcentrationMgL = getSodiumConcentrationMgL(normalizedInput.temperature_c);
+  const sodiumConcentrationMgL = getSodiumConcentrationMgL(
+    normalizedInput.temperature_c,
+    normalizedInput.sodium_loss_profile
+  );
   const sodiumPerHourMg = (fluidPerHourMl / 1000) * sodiumConcentrationMgL;
   const sodiumTotalMg = sodiumPerHourMg * durationHours;
   const sodiumIntervalMin = 15;
