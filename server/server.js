@@ -483,11 +483,15 @@ app.post("/api/calc", (req, res) => {
     warnings.push("В жару без данных о вашей потливости точность расчёта жидкости ниже.");
   }
 
-  if (durationMin > 720) {
-    warnings.push("Очень длинная гонка: расчёт носит ориентировочный характер и требует проверки на практике.");
-  }
+if (durationMin > 720) {
+  warnings.push("Очень длинная гонка: расчёт носит ориентировочный характер и требует проверки на практике.");
+}
 
-  warnings.push("Натрий — это ориентир, а не защита от перепивания.");
+if (normalizedInput.sodium_loss_profile === "unknown") {
+  warnings.push("Профиль потерь натрия не указан точно: план по натрию лучше проверить на тренировке.");
+}
+
+warnings.push("Натрий — это ориентир, а не защита от перепивания.");
 
   const fluidPerHourMl = calculateFluidPerHourMl(normalizedInput);
   const fluidTotalMl = fluidPerHourMl * durationHours;
