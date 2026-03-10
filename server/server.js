@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
+const { testDbConnection } = require("./db");
 
 const app = express();
 const FORMULA_VERSION = "v1.1";
@@ -573,6 +574,23 @@ app.post("/api/calc", (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
+
+app.get("/api/db-test", async (req, res) => {
+  try {
+    const dbInfo = await testDbConnection();
+
+    res.json({
+      ok: true,
+      db_time: dbInfo.now
+    });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: error.message
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);
 });
