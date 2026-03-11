@@ -740,6 +740,116 @@ app.post("/api/calc", async (req, res) => {
   }
   return res.json(responsePayload);
 });
+
+app.get("/api/history", async (req, res) => {
+  const authHeader = String(req.headers.authorization || "");
+  const initData = authHeader.startsWith("tma ")
+    ? authHeader.slice(4).trim()
+    : "";
+
+  const botToken = process.env.BOT_TOKEN;
+
+  if (!botToken) {
+    return res.status(500).json({
+      ok: false,
+      error: "На сервере не настроен BOT_TOKEN.",
+      items: []
+    });
+  }
+
+  if (!initData) {
+    return res.status(401).json({
+      ok: false,
+      error: "Не переданы данные Telegram WebApp для истории расчётов.",
+      items: []
+    });
+  }
+
+  const authResult = validateTelegramInitData(initData, botToken);
+
+  if (!authResult.ok) {
+    return res.status(401).json({
+      ok: false,
+      error: authResult.error || "Проверка данных Telegram не пройдена.",
+      items: []
+    });
+  }
+
+  if (!authResult.user || !authResult.user.id) {
+    return res.status(401).json({
+      ok: false,
+      error: "В initData нет корректного объекта user.",
+      items: []
+    });
+  }
+
+  const telegramUserId = String(authResult.user.id);
+  const pool = getPool();
+
+  try {
+    const userResult = await pool.query(
+      `
+        SELECT id
+        FROM users
+        WHERE tg_user_id = $1
+        LIMIT 1
+      `,
+      [telegramUserId]
+    );
+
+    const dbUser = userResult.rows[0] || null;
+
+    if (!dbUser) {
+      return res.status(401).json({
+        ok: false,
+        error: "Пользователь Telegram не найден в базе после auth.",
+        items: []
+      });
+    }
+
+    const historyResult = await pool.query(
+      `
+        SELECT
+          id,
+          created_at,
+          race_type,
+          duration_min,
+          formula_version,
+          result_json
+        FROM calculations
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        LIMIT 5
+      `,
+      [dbUser.id]
+    );
+
+    const items = historyResult.rows.map((row) => ({
+      id: row.id,
+      created_at: row.created_at,
+      race_type: row.race_type,
+      duration_min: row.duration_min,
+      formula_version: row.formula_version,
+      carbs_per_hour_g: row.result_json?.carbs?.carbs_per_hour_g ?? null,
+      fluid_per_hour_ml: row.result_json?.fluid?.fluid_per_hour_ml ?? null,
+      sodium_per_hour_mg: row.result_json?.sodium?.sodium_per_hour_mg ?? null
+    }));
+
+    return res.json({
+      ok: true,
+      items
+    });
+  } catch (error) {
+    console.error("Failed to load calculations history:", error);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Не удалось загрузить историю расчётов.",
+      items: []
+    });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.get("/api/db-test", async (req, res) => {
