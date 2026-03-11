@@ -553,10 +553,10 @@
     }
   }
 
-  calcBtn.addEventListener("click", async () => {
+    calcBtn.addEventListener("click", async () => {
     clearMessages();
-    resultEl.innerHTML = "Отправляю запрос...";
-    calcStatusText = "calc: проверяем...";
+    resultEl.innerHTML = "Отправляю запрос.";
+    calcStatusText = "calc: проверяем.";
     renderServerStatus();
 
     const payload = {
@@ -575,11 +575,14 @@
       sodium_loss_profile: sodiumLossProfileEl.value || null
     };
 
+    const initData = tg && typeof tg.initData === "string" ? tg.initData : "";
+
     try {
       const res = await fetch("https://race-nutrition-miniapp.onrender.com/api/calc", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          ...(initData ? { Authorization: `tma ${initData}` } : {})
         },
         body: JSON.stringify(payload)
       });
