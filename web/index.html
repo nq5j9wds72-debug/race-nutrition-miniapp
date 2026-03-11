@@ -253,20 +253,19 @@
     }
 
     .result-hero {
-  font-size: 18px;
-  line-height: 1.5;
-  margin-top: 0;
-  margin-bottom: 12px;
-}
+      font-size: 18px;
+      line-height: 1.5;
+      margin-top: 0;
+      margin-bottom: 12px;
+    }
 
-.result-meta {
-  color: var(--text-secondary);
-  font-size: 14px;
-  line-height: 1.45;
-  margin-top: 0;
-  margin-bottom: 8px;
-}
-
+    .result-meta {
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.45;
+      margin-top: 0;
+      margin-bottom: 8px;
+    }
 
     .history-list {
       display: grid;
@@ -754,9 +753,7 @@
       const gelBasis = Math.round(data.result.gel_equivalent?.gel_basis_g ?? 25);
 
       const summary = "Ниже — подробная разбивка по углеводам, жидкости и натрию на всю гонку.";
-
       const keyTakeaway = "Главное: начни питание и питьё рано и держи ровный ритм всю гонку.";
-
 
       const planSteps = Array.isArray(data.plan?.plan_steps) ? data.plan.plan_steps : [];
       const warnings = Array.isArray(data.warnings) ? data.warnings : [];
@@ -784,15 +781,13 @@
         : "";
 
       return `
-                <div class="card">
+        <div class="card">
           <h2>Твой план на гонку</h2>
           <p class="result-hero"><strong>${carbsPerHour} г/ч углеводов · ${fluidPerHour} мл/ч жидкости · ${sodiumPerHour} мг/ч натрия</strong></p>
-<p class="result-meta">Длительность: ${durationHuman}</p>
-<p class="result-meta">${summary}</p>
-<p class="result-meta">${keyTakeaway}</p>
-
+          <p class="result-meta">Длительность: ${durationHuman}</p>
+          <p class="result-meta">${summary}</p>
+          <p class="result-meta">${keyTakeaway}</p>
         </div>
-
 
         <div class="card">
           <h3>Углеводы</h3>
