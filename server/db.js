@@ -8,9 +8,11 @@ function getPool() {
   }
 
   if (!pool) {
+    const isRunningOnRender = process.env.RENDER === "true";
+
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: false
+      ssl: isRunningOnRender ? false : { rejectUnauthorized: false }
     });
   }
 

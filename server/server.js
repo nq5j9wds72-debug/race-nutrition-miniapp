@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
-const { testDbConnection } = require("./db");
+const { getPool, testDbConnection } = require("./db");
 
 const app = express();
 const FORMULA_VERSION = "v1.1";
@@ -240,7 +240,7 @@ app.post("/api/track-open", (req, res) => {
 });
 
 // auth with Telegram initData validation
-app.post("/api/auth", (req, res) => {
+app.post("/api/auth", async (req, res) => {
   const initData = String(req.body?.initData || "");
   const botToken = process.env.BOT_TOKEN;
 
@@ -262,6 +262,51 @@ app.post("/api/auth", (req, res) => {
 
   if (!result.ok) {
     return res.status(401).json(result);
+  }
+
+  if (!result.user || !result.user.id) {
+    return res.status(400).json({
+      ok: false,
+      error: "В initData нет корректного объекта user."
+    });
+  }
+
+  try {
+    const pool = getPool();
+
+    await pool.query(
+      `
+        INSERT INTO users (
+          tg_user_id,
+          username,
+          first_name,
+          last_name,
+          updated_at,
+          last_seen_at
+        )
+        VALUES ($1, $2, $3, $4, NOW(), NOW())
+        ON CONFLICT (tg_user_id)
+        DO UPDATE SET
+          username = EXCLUDED.username,
+          first_name = EXCLUDED.first_name,
+          last_name = EXCLUDED.last_name,
+          updated_at = NOW(),
+          last_seen_at = NOW()
+      `,
+      [
+        String(result.user.id),
+        result.user.username ?? null,
+        result.user.first_name ?? null,
+        result.user.last_name ?? null
+      ]
+    );
+  } catch (error) {
+    console.error("auth db error", error);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Не удалось сохранить пользователя в базе."
+    });
   }
 
   incrementMetric("auth_success", {
