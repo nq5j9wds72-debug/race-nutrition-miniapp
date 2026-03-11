@@ -390,6 +390,46 @@ app.post("/api/calc", async (req, res) => {
       plan: null
     });
   }
+
+  const telegramUserId = String(authResult.user.id);
+  const pool = getPool();
+
+  let dbUser = null;
+
+  try {
+    const userResult = await pool.query(
+      `SELECT id
+       FROM users
+       WHERE tg_user_id = $1
+       LIMIT 1`,
+      [telegramUserId]
+    );
+
+    dbUser = userResult.rows[0] || null;
+  } catch (error) {
+    console.error("Failed to load user for calc:", error);
+
+    return res.status(500).json({
+      ok: false,
+      errors: ["Не удалось загрузить пользователя для расчёта."],
+      warnings: [],
+      normalized_input: null,
+      result: null,
+      plan: null
+    });
+  }
+
+  if (!dbUser) {
+    return res.status(401).json({
+      ok: false,
+      errors: ["Пользователь Telegram не найден в базе после auth."],
+      warnings: [],
+      normalized_input: null,
+      result: null,
+      plan: null
+    });
+  }
+
   const input = req.body || {};
 
   const normalizedInput = {
@@ -623,7 +663,7 @@ app.post("/api/calc", async (req, res) => {
     used_sweat_rate: normalizedInput.sweat_rate_lph !== null
   });
 
-  return res.json({
+  const responsePayload = {
     ok: true,
     formula_version: FORMULA_VERSION,
     errors: [],
@@ -664,9 +704,42 @@ app.post("/api/calc", async (req, res) => {
         `Всего за гонку ориентир такой: ${displayCarbsTotal} г углеводов, ${displayFluidTotalMl} мл жидкости и ${displaySodiumTotalMg} мг натрия.`
       ]
     }
-  });
-});
+  };
+  try {
+    await pool.query(
+      `INSERT INTO calculations (
+        user_id,
+        formula_version,
+        race_type,
+        duration_min,
+        input_json,
+        result_json,
+        warnings_json
+      ) VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb)`,
+      [
+        dbUser.id,
+        FORMULA_VERSION,
+        normalizedInput.race_type,
+        normalizedInput.duration_min,
+        JSON.stringify(normalizedInput),
+        JSON.stringify(responsePayload.result),
+        JSON.stringify(warnings)
+      ]
+    );
+  } catch (error) {
+    console.error("Failed to save calculation:", error);
 
+    return res.status(500).json({
+      ok: false,
+      errors: ["Не удалось сохранить успешный расчёт в базу."],
+      warnings: [],
+      normalized_input: null,
+      result: null,
+      plan: null
+    });
+  }
+  return res.json(responsePayload);
+});
 const PORT = process.env.PORT || 3000;
 
 app.get("/api/db-test", async (req, res) => {
