@@ -252,6 +252,22 @@
       margin-bottom: 10px;
     }
 
+    .result-hero {
+  font-size: 18px;
+  line-height: 1.5;
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.result-meta {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.45;
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+
     .history-list {
       display: grid;
       gap: 12px;
@@ -737,7 +753,8 @@
       const gelsPerHour = roundToHalf(data.result.gel_equivalent?.gels_per_hour_est ?? 0);
       const gelBasis = Math.round(data.result.gel_equivalent?.gel_basis_g ?? 25);
 
-      const summary = `На ${durationHuman} тебе нужен план: около ${carbsPerHour} г углеводов в час, ${fluidPerHour} мл жидкости в час и ${sodiumPerHour} мг натрия в час.`;
+      const summary = "Ниже — подробная разбивка по углеводам, жидкости и натрию на всю гонку.";
+
       const keyTakeaway = "Главное: начни питание и питьё рано и держи ровный ритм всю гонку.";
 
 
@@ -769,10 +786,11 @@
       return `
                 <div class="card">
           <h2>Твой план на гонку</h2>
-          <p><strong>${carbsPerHour} г/ч углеводов · ${fluidPerHour} мл/ч жидкости · ${sodiumPerHour} мг/ч натрия</strong></p>
-          <p>${summary}</p>
-          <div>Длительность: ${durationHuman}</div>
-          <p>${keyTakeaway}</p>
+          <p class="result-hero"><strong>${carbsPerHour} г/ч углеводов · ${fluidPerHour} мл/ч жидкости · ${sodiumPerHour} мг/ч натрия</strong></p>
+<p class="result-meta">Длительность: ${durationHuman}</p>
+<p class="result-meta">${summary}</p>
+<p class="result-meta">${keyTakeaway}</p>
+
         </div>
 
 
