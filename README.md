@@ -2,8 +2,8 @@
 
 Telegram Mini App для расчёта питания на гонку.
 
-Текущий статус проекта: **stable MVP v1.1** после завершения **Дня 24**.  
-Это уже рабочий снимок продукта, но ещё не первая показываемая продуктовая версия.
+Текущий статус проекта: **stable MVP v1.1** после завершения **Дня 29**.  
+Это уже рабочий MVP не только с расчётом, но и с реальной памятью продукта: подтверждённые Telegram-пользователи сохраняются в Postgres, а успешные расчёты записываются в историю.
 
 ---
 
@@ -16,27 +16,32 @@ Telegram Mini App для расчёта питания на гонку.
 - натрию
 - эквиваленту в гелях
 
-Сейчас это не “умный личный кабинет”, а честный рабочий MVP-калькулятор внутри Telegram с серверной проверкой Telegram auth и расчётом через backend.
+Сейчас это уже не просто одноразовый калькулятор, а Telegram Mini App с серверной проверкой Telegram auth, backend-расчётом и сохранением успешных расчётов в Render Postgres.
 
 ---
 
 # 2. Что уже работает
 
-## 2.1. Mini app и сервер
+## 2.1. Mini app, сервер и БД
 
 Сейчас в проекте уже работает:
 
 - Mini app открывается внутри Telegram
 - frontend задеплоен
 - backend задеплоен
+- frontend обновляется через **Cloudflare Pages ← GitHub**
+- backend обновляется через **Render ← GitHub (Auto-Deploy)**
 - есть рабочий endpoint `/health`
 - есть рабочий endpoint `/api/auth`
 - есть рабочий endpoint `/api/calc`
 - есть рабочий endpoint `/api/metrics`
 - есть рабочий endpoint `/api/track-open`
 - есть служебный endpoint `/api/calc-test`
+- есть служебный endpoint `/api/db-test`
 - работает серверная проверка Telegram `initData`
-- расчёт выполняется через backend
+- `/api/auth` сохраняет подтверждённого пользователя в таблицу `users`
+- `/api/calc` принимает расчёт только после Telegram auth
+- успешный расчёт сохраняется в таблицу `calculations`
 - результат показывается пользователю на русском языке
 - ошибки валидации выводятся отдельным блоком
 - warnings выводятся отдельно
@@ -61,6 +66,11 @@ Telegram Mini App для расчёта питания на гонку.
 - `sodium_loss_profile` влияет на sodium
 - `sodium_loss_profile = unknown` даёт warning без изменения maths
 - production backend и локальный backend совпадали по контрольным кейсам
+- пользователь после успешного `/api/auth` создаётся или обновляется в `users`
+- повторный auth не создаёт дубль пользователя
+- успешный Telegram-расчёт создаёт запись в `calculations`
+- запись в `calculations` связана с корректным `user_id`
+- `formula_version`, `race_type`, `duration_min` и `warnings_json` реально сохраняются в Postgres
 
 ---
 
@@ -68,9 +78,9 @@ Telegram Mini App для расчёта питания на гонку.
 
 - Frontend: HTML / CSS / JavaScript
 - Backend: Node.js + Express
-- Frontend deploy: Cloudflare Pages
-- Backend deploy: Render
-- Целевая БД следующей фазы: **Render Postgres**
+- Database: Render Postgres
+- Frontend deploy: Cloudflare Pages ← GitHub
+- Backend deploy: Render ← GitHub (`master`, Auto-Deploy)
 
 ---
 
@@ -89,6 +99,7 @@ Telegram Mini App для расчёта питания на гонку.
 - `GET /api/metrics`
 - `POST /api/track-open`
 - `POST /api/calc-test`
+- `GET /api/db-test`
 
 ---
 
@@ -96,6 +107,8 @@ Telegram Mini App для расчёта питания на гонку.
 
 - `web/index.html` — frontend mini app
 - `server/server.js` — backend и расчётная логика
+- `server/db.js` — подключение к Postgres
+- `schema.sql` — актуальная схема MVP-таблиц
 - `README.md` — текущее зафиксированное состояние проекта
 - `00_MASTER_PLAN_RACE_NUTRITION.md` — главный roadmap текущей фазы
 
@@ -105,7 +118,7 @@ Telegram Mini App для расчёта питания на гонку.
 
 ## 7.1. Завершённый блок
 
-Завершены **Дни 15–24**.
+Завершены **Дни 15–29**.
 
 Результат этого блока:
 
@@ -114,24 +127,27 @@ Telegram Mini App для расчёта питания на гонку.
 - проведена ручная регрессия
 - базовый расчётный сценарий работает
 - optional-поля приведены в более честное состояние
-- текущий frontend и backend можно считать рабочим stable snapshot
+- подключён Render Postgres
+- таблицы `users` и `calculations` реально работают
+- подтверждённые Telegram-пользователи сохраняются после auth
+- успешные расчёты сохраняются в историю
+- текущий frontend и backend можно считать рабочим stable snapshot с памятью продукта
 
 ## 7.2. Следующий этап
 
-Следующий большой блок — **Дни 25–34**.
+Следующий большой блок — **Дни 30–34**.
 
 Логика этой фазы:
 
-1. memory / DB foundation
-2. history
-3. Figma
-4. UI cleanup
-5. showable version
+1. history
+2. Figma
+3. UI cleanup
+4. showable version
 
 ## 7.3. Следующий рабочий день
 
-- Следующий день по плану: **День 25**
-- Главная тема: **архитектурный freeze — Render Postgres вместо SQLite**
+- Следующий день по плану: **День 30**
+- Главная тема: **API истории для пользователя**
 
 ---
 
@@ -147,11 +163,11 @@ Telegram Mini App для расчёта питания на гонку.
 
 - SQLite из roadmap убрана
 - Основная БД проекта: **Render Postgres**
-- На следующем этапе делаем не абстрактную схему, а реальную минимальную БД
+- Минимальная рабочая схема MVP уже внедрена: `users` + `calculations`
 
 ## 8.3. По данным MVP
 
-В первой продуктовой фазе планируется хранить только то, что реально усиливает продукт:
+В первой продуктовой фазе храним только то, что реально усиливает продукт:
 
 - users
 - calculations
@@ -277,6 +293,7 @@ SQLite была бы временной ступенькой. Для этого 
 - frontend обращается напрямую к production backend
 - frontend использует `tg.initDataUnsafe` только для UI-показа пользователя
 - frontend использует `tg.initData` для запроса на `/api/auth`
+- frontend использует `tg.initData` для защищённого запроса на `/api/calc`
 - `duration_min` во frontend не вводится напрямую
 - `duration_min` собирается из `duration_hours + duration_minutes`
 
@@ -294,6 +311,7 @@ SQLite была бы временной ступенькой. Для этого 
 - требует `BOT_TOKEN`
 - проверяет подпись Telegram `initData`
 - проверяет `auth_date` со сроком 24 часа
+- создаёт или обновляет пользователя в `users`
 - при успехе увеличивает `auth_success`
 
 ## 13.2. `/api/track-open`
@@ -302,13 +320,20 @@ SQLite была бы временной ступенькой. Для этого 
 
 ## 13.3. `/api/calc`
 
+- требует валидный Telegram auth
+- загружает пользователя из `users`
 - при успехе увеличивает `calc_success`
 - при ошибках валидации увеличивает `calc_validation_error`
+- сохраняет успешный расчёт в `calculations`
 - возвращает `formula_version`
 
 ## 13.4. `/api/metrics`
 
 - показывает базовые счётчики MVP
+
+## 13.5. `/api/db-test`
+
+- проверяет соединение с Postgres
 
 ---
 
@@ -540,8 +565,11 @@ SQLite была бы временной ступенькой. Для этого 
 - `id`
 - `user_id`
 - `formula_version`
+- `race_type`
+- `duration_min`
 - `input_json`
 - `result_json`
+- `warnings_json`
 - `created_at`
 
 ## 18.3. Что сознательно не включено в MVP
@@ -572,7 +600,15 @@ SQLite была бы временной ступенькой. Для этого 
 
 ## Блок B. Память продукта — Дни 25–30
 
-Результат блока:
+Текущее состояние блока:
+
+- завершены Дни 25–29
+- уже есть real DB connection
+- уже есть users
+- уже есть calculations
+- осталось завершить День 30: history endpoint
+
+Результат полного блока:
 
 - real DB connection
 - users
@@ -592,22 +628,7 @@ SQLite была бы временной ступенькой. Для этого 
 
 ---
 
-# 20. Следующие дни по плану
-
-## День 25
-Архитектурный freeze: Render Postgres вместо SQLite
-
-## День 26
-Живое подключение к Render Postgres
-
-## День 27
-Схема БД MVP
-
-## День 28
-Сохранение пользователя после auth
-
-## День 29
-Сохранение успешного расчёта
+# 20. Ближайшие дни по плану
 
 ## День 30
 API истории для пользователя
@@ -661,7 +682,7 @@ History UI + первая показываемая продуктовая вер
 
 # 23. Ключевая честная формулировка на текущий момент
 
-Сейчас Race Nutrition Mini App — это **рабочий Telegram MVP-калькулятор с честным формульным ядром `v1.1`**, серверной проверкой Telegram auth и понятным планом перехода к версии с памятью, историей расчётов и более сильным продуктовым интерфейсом.
+Сейчас Race Nutrition Mini App — это **рабочий Telegram MVP-калькулятор с честным формульным ядром `v1.1`**, серверной проверкой Telegram auth, реальной памятью продукта на уровне Postgres и сохранением успешных расчётов.
 
 Пока это ещё не финальный продуктовый UI, но уже не “сырой эксперимент”.
 
