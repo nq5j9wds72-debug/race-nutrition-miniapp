@@ -340,7 +340,56 @@ app.post("/api/calc-test", (req, res) => {
 });
 
 // main nutrition calculation route (v1: validation + carbs + fluid + sodium)
-app.post("/api/calc", (req, res) => {
+app.post("/api/calc", async (req, res) => {
+  const authHeader = String(req.headers.authorization || "");
+  const initData = authHeader.startsWith("tma ") ? authHeader.slice(4) : "";
+  const botToken = process.env.BOT_TOKEN;
+
+  if (!botToken) {
+    return res.status(500).json({
+      ok: false,
+      errors: ["На сервере не настроен BOT_TOKEN."],
+      warnings: [],
+      normalized_input: null,
+      result: null,
+      plan: null
+    });
+  }
+
+  if (!initData) {
+    return res.status(401).json({
+      ok: false,
+      errors: ["Не переданы данные Telegram WebApp для защищённого расчёта."],
+      warnings: [],
+      normalized_input: null,
+      result: null,
+      plan: null
+    });
+  }
+
+  const authResult = validateTelegramInitData(initData, botToken);
+
+  if (!authResult.ok) {
+    return res.status(401).json({
+      ok: false,
+      errors: [authResult.error || "Проверка данных Telegram не пройдена."],
+      warnings: [],
+      normalized_input: null,
+      result: null,
+      plan: null
+    });
+  }
+
+  if (!authResult.user || !authResult.user.id) {
+    return res.status(401).json({
+      ok: false,
+      errors: ["В initData нет корректного объекта user."],
+      warnings: [],
+      normalized_input: null,
+      result: null,
+      plan: null
+    });
+  }
   const input = req.body || {};
 
   const normalizedInput = {
