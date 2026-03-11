@@ -267,6 +267,36 @@
       margin-bottom: 8px;
     }
 
+    .result-kpis {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .result-kpi {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #F9FAFB;
+      padding: 10px 12px;
+    }
+
+    .result-kpi-label {
+      display: block;
+      color: var(--text-secondary);
+      font-size: 12px;
+      line-height: 1.35;
+      margin-bottom: 4px;
+    }
+
+    .result-kpi-value {
+      display: block;
+      font-size: 16px;
+      line-height: 1.35;
+      font-weight: 700;
+      color: var(--text);
+    }
+
     .history-list {
       display: grid;
       gap: 12px;
@@ -783,7 +813,22 @@
       return `
         <div class="card">
           <h2>Твой план на гонку</h2>
-          <p class="result-hero"><strong>${carbsPerHour} г/ч углеводов · ${fluidPerHour} мл/ч жидкости · ${sodiumPerHour} мг/ч натрия</strong></p>
+
+          <div class="result-kpis">
+            <div class="result-kpi">
+              <span class="result-kpi-label">Углеводы</span>
+              <span class="result-kpi-value">${carbsPerHour} г/ч</span>
+            </div>
+            <div class="result-kpi">
+              <span class="result-kpi-label">Жидкость</span>
+              <span class="result-kpi-value">${fluidPerHour} мл/ч</span>
+            </div>
+            <div class="result-kpi">
+              <span class="result-kpi-label">Натрий</span>
+              <span class="result-kpi-value">${sodiumPerHour} мг/ч</span>
+            </div>
+          </div>
+
           <p class="result-meta">Длительность: ${durationHuman}</p>
           <p class="result-meta">${summary}</p>
           <p class="result-meta">${keyTakeaway}</p>
