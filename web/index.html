@@ -30,6 +30,10 @@
       box-sizing: border-box;
     }
 
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
       font-family: Arial, sans-serif;
       padding: 16px;
@@ -75,6 +79,7 @@
       font-size: 14px;
       font-weight: 600;
       cursor: pointer;
+      white-space: nowrap;
     }
 
     .card {
@@ -253,11 +258,73 @@
       color: var(--text-secondary);
     }
 
-    .history-placeholder {
+    .history-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .history-placeholder,
+    .history-error,
+    .history-loading {
       color: var(--text-secondary);
       font-size: 14px;
       line-height: 1.45;
       margin: 0;
+    }
+
+    .history-error {
+      color: var(--error-text);
+    }
+
+    .history-item {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      background: #fff;
+    }
+
+    .history-topline {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .history-title {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.25;
+      font-weight: 700;
+    }
+
+    .history-date {
+      margin: 0;
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .history-meta {
+      margin: 0 0 8px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .history-metrics {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .history-metrics div {
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: #F9FAFB;
+      border: 1px solid var(--border);
     }
 
     .debug-meta {
@@ -401,394 +468,523 @@
       <div id="result" class="result">Пока расчёта нет.</div>
     </div>
 
-    <div class="card">
+    <div class="card" id="history-card">
       <div class="advanced-header">
         <h2 class="advanced-title">История расчётов</h2>
-        <button id="history-link-bottom" class="link-btn" type="button">Открыть</button>
+        <button id="history-refresh-btn" class="link-btn" type="button">Обновить</button>
       </div>
-      <p class="history-placeholder">Следующим шагом подключим сюда последние расчёты пользователя из уже готового endpoint `/api/history`.</p>
+      <div id="history-content" class="history-list">
+        <p class="history-loading">Загрузка истории...</p>
+      </div>
     </div>
   </div>
 
   <script>
-  const tg = window.Telegram && window.Telegram.WebApp
-    ? window.Telegram.WebApp
-    : null;
+    const API_BASE = "https://race-nutrition-miniapp.onrender.com";
 
-  const statusEl = document.getElementById("status");
-  const userEl = document.getElementById("user");
-  const serverStatusEl = document.getElementById("server-status");
-  const statusNoteEl = document.getElementById("status-note");
-
-  const raceTypeEl = document.getElementById("race_type");
-  const durationHoursEl = document.getElementById("duration_hours");
-  const durationMinutesEl = document.getElementById("duration_minutes");
-  const weightEl = document.getElementById("weight_kg");
-  const temperatureEl = document.getElementById("temperature_c");
-  const fuelFormatEl = document.getElementById("fuel_format");
-  const giToleranceEl = document.getElementById("gi_tolerance_level");
-
-  const effortLevelEl = document.getElementById("effort_level");
-  const humidityEl = document.getElementById("humidity_pct");
-  const distanceEl = document.getElementById("distance_km");
-  const sweatRateEl = document.getElementById("sweat_rate_lph");
-  const elevationEl = document.getElementById("elevation_gain_m");
-  const sodiumLossProfileEl = document.getElementById("sodium_loss_profile");
-
-  const calcBtn = document.getElementById("calc-btn");
-  const advancedToggleEl = document.getElementById("advanced-toggle");
-  const advancedCloseEl = document.getElementById("advanced-close");
-  const advancedCardEl = document.getElementById("advanced-card");
-  const historyLinkTopEl = document.getElementById("history-link-top");
-  const historyLinkBottomEl = document.getElementById("history-link-bottom");
-
-  const errorsBoxEl = document.getElementById("errors-box");
-  const errorsListEl = document.getElementById("errors-list");
-  const resultEl = document.getElementById("result");
-
-  let telegramAuthOk = false;
-  let authStatusText = "auth: не проверялся";
-  let calcStatusText = "calc: не запускался";
-
-  function renderServerStatus() {
-    serverStatusEl.textContent = `${authStatusText} | ${calcStatusText}`;
-    if (statusNoteEl) {
-      statusNoteEl.textContent = serverStatusEl.textContent;
-    }
-  }
-
-  function setAdvancedOpen(isOpen) {
-    advancedCardEl.classList.toggle("hidden", !isOpen);
-    advancedToggleEl.textContent = isOpen ? "Дополнительные поля открыты" : "+ Уточнить расчёт";
-  }
-
-  renderServerStatus();
-  setAdvancedOpen(false);
-
-  if (tg) {
-    tg.ready();
-    tg.expand();
-
-    statusEl.textContent = "Открыто внутри Telegram WebApp ✅";
-
-    const user = tg.initDataUnsafe && tg.initDataUnsafe.user
-      ? tg.initDataUnsafe.user
+    const tg = window.Telegram && window.Telegram.WebApp
+      ? window.Telegram.WebApp
       : null;
 
-    if (user) {
-      const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ");
-      const username = user.username ? "(@" + user.username + ")" : "";
-      userEl.textContent = (fullName || "Без имени") + " " + username;
-    } else {
-      userEl.textContent = "Пользователь не передан";
-    }
-  } else {
-    statusEl.textContent = "Открыто вне Telegram ⚠️";
-    userEl.textContent = "Нет данных пользователя";
-    authStatusText = "auth: вне Telegram";
-    renderServerStatus();
-  }
+    const statusEl = document.getElementById("status");
+    const userEl = document.getElementById("user");
+    const serverStatusEl = document.getElementById("server-status");
+    const statusNoteEl = document.getElementById("status-note");
 
-  function parseNumberOrNull(value) {
-    if (value === "" || value === null || value === undefined) {
-      return null;
-    }
+    const raceTypeEl = document.getElementById("race_type");
+    const durationHoursEl = document.getElementById("duration_hours");
+    const durationMinutesEl = document.getElementById("duration_minutes");
+    const weightEl = document.getElementById("weight_kg");
+    const temperatureEl = document.getElementById("temperature_c");
+    const fuelFormatEl = document.getElementById("fuel_format");
+    const giToleranceEl = document.getElementById("gi_tolerance_level");
 
-    const num = Number(value);
-    return Number.isFinite(num) ? num : null;
-  }
+    const effortLevelEl = document.getElementById("effort_level");
+    const humidityEl = document.getElementById("humidity_pct");
+    const distanceEl = document.getElementById("distance_km");
+    const sweatRateEl = document.getElementById("sweat_rate_lph");
+    const elevationEl = document.getElementById("elevation_gain_m");
+    const sodiumLossProfileEl = document.getElementById("sodium_loss_profile");
 
-  function buildDurationMinutes() {
-    const rawHours = durationHoursEl.value;
-    const rawMinutes = durationMinutesEl.value;
+    const calcBtn = document.getElementById("calc-btn");
+    const advancedToggleEl = document.getElementById("advanced-toggle");
+    const advancedCloseEl = document.getElementById("advanced-close");
+    const advancedCardEl = document.getElementById("advanced-card");
+    const historyLinkTopEl = document.getElementById("history-link-top");
+    const historyRefreshBtnEl = document.getElementById("history-refresh-btn");
+    const historyCardEl = document.getElementById("history-card");
+    const historyContentEl = document.getElementById("history-content");
 
-    if (rawHours === "" && rawMinutes === "") {
-      return null;
-    }
+    const errorsBoxEl = document.getElementById("errors-box");
+    const errorsListEl = document.getElementById("errors-list");
+    const resultEl = document.getElementById("result");
 
-    const hours = parseNumberOrNull(rawHours) ?? 0;
-    const minutes = parseNumberOrNull(rawMinutes) ?? 0;
+    let telegramAuthOk = false;
+    let authStatusText = "auth: не проверялся";
+    let calcStatusText = "calc: не запускался";
 
-    return (hours * 60) + minutes;
-  }
-
-  function clearMessages() {
-    errorsListEl.innerHTML = "";
-    errorsBoxEl.classList.add("hidden");
-  }
-
-  function showList(listEl, boxEl, items) {
-    listEl.innerHTML = "";
-
-    items.forEach((item) => {
-      const li = document.createElement("li");
-      li.textContent = item;
-      listEl.appendChild(li);
-    });
-
-    boxEl.classList.remove("hidden");
-  }
-
-  function roundTo5(value) {
-    return Math.round(Number(value) / 5) * 5;
-  }
-
-  function roundToHalf(value) {
-    return Math.round(Number(value) * 2) / 2;
-  }
-
-  function formatDuration(durationMin) {
-    const totalMin = Number(durationMin || 0);
-    const hours = Math.floor(totalMin / 60);
-    const minutes = totalMin % 60;
-
-    if (hours > 0) {
-      return `${hours} ч ${String(minutes).padStart(2, "0")} мин`;
+    function renderServerStatus() {
+      serverStatusEl.textContent = `${authStatusText} | ${calcStatusText}`;
+      if (statusNoteEl) {
+        statusNoteEl.textContent = serverStatusEl.textContent;
+      }
     }
 
-    return `${minutes} мин`;
-  }
-
-  function escapeHtml(value) {
-    return String(value ?? "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-  }
-
-  function formatCalcResult(data) {
-    if (!data || !data.ok || !data.result) {
-      return `<div class="card"><strong>Нет данных для отображения результата.</strong></div>`;
+    function setAdvancedOpen(isOpen) {
+      advancedCardEl.classList.toggle("hidden", !isOpen);
+      advancedToggleEl.textContent = isOpen ? "Дополнительные поля открыты" : "+ Уточнить расчёт";
     }
 
-    const durationHuman = formatDuration(data.normalized_input?.duration_min);
-
-    const carbsTotal = Math.round(data.result.carbs?.carbs_total_g ?? 0);
-    const carbsPerHour = Math.round(data.result.carbs?.carbs_per_hour_g ?? 0);
-    const carbInterval = Math.round(data.result.carbs?.carb_interval_min ?? 0);
-    const carbsPerIntake = Math.round(data.result.carbs?.carbs_per_intake_g ?? 0);
-
-    const fluidTotal = Math.round(data.result.fluid?.fluid_total_ml ?? 0);
-    const fluidPerHour = Math.round(data.result.fluid?.fluid_per_hour_ml ?? 0);
-    const fluidInterval = Math.round(data.result.fluid?.fluid_interval_min ?? 0);
-    const fluidPerIntake = roundTo5(data.result.fluid?.fluid_per_intake_ml ?? 0);
-
-    const sodiumTotal = Math.round(data.result.sodium?.sodium_total_mg ?? 0);
-    const sodiumPerHour = Math.round(data.result.sodium?.sodium_per_hour_mg ?? 0);
-    const sodiumInterval = Math.round(data.result.sodium?.sodium_interval_min ?? 0);
-    const sodiumPerIntake = Math.round(data.result.sodium?.sodium_per_intake_mg ?? 0);
-
-    const gelsTotal = roundToHalf(data.result.gel_equivalent?.gels_total_est ?? 0);
-    const gelsPerHour = roundToHalf(data.result.gel_equivalent?.gels_per_hour_est ?? 0);
-    const gelBasis = Math.round(data.result.gel_equivalent?.gel_basis_g ?? 25);
-
-    const summary = `На ${durationHuman} тебе нужен план: около ${carbsPerHour} г углеводов в час, ${fluidPerHour} мл жидкости в час и ${sodiumPerHour} мг натрия в час.`;
-
-    const planSteps = Array.isArray(data.plan?.plan_steps) ? data.plan.plan_steps : [];
-    const warnings = Array.isArray(data.warnings) ? data.warnings : [];
-
-    const planHtml = planSteps.length
-      ? `
-        <div class="card">
-          <h3>Как действовать на гонке</h3>
-          <ul>
-            ${planSteps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}
-          </ul>
-        </div>
-      `
-      : "";
-
-    const warningsHtml = warnings.length
-      ? `
-        <div class="card">
-          <h3>Что учесть</h3>
-          <ul>
-            ${warnings.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
-          </ul>
-        </div>
-      `
-      : "";
-
-    return `
-      <div class="card">
-        <h2>План на гонку</h2>
-        <p>${summary}</p>
-        <div>Длительность: ${durationHuman}</div>
-      </div>
-
-      <div class="card">
-        <h3>Углеводы</h3>
-        <div>Всего: ${carbsTotal} г</div>
-        <div>В час: ${carbsPerHour} г</div>
-        <div>Интервал: каждые ${carbInterval} мин</div>
-        <div>За приём: ${carbsPerIntake} г</div>
-      </div>
-
-      <div class="card">
-        <h3>Жидкость</h3>
-        <div>Всего: ${fluidTotal} мл</div>
-        <div>В час: ${fluidPerHour} мл</div>
-        <div>Интервал: каждые ${fluidInterval} мин</div>
-        <div>За приём: ${fluidPerIntake} мл</div>
-      </div>
-
-      <div class="card">
-        <h3>Натрий</h3>
-        <div>Всего: ${sodiumTotal} мг</div>
-        <div>В час: ${sodiumPerHour} мг</div>
-        <div>Интервал: каждые ${sodiumInterval} мин</div>
-        <div>За приём: ${sodiumPerIntake} мг</div>
-      </div>
-
-      <div class="card">
-        <h3>Эквивалент в гелях</h3>
-        <div>Всего: ${gelsTotal}</div>
-        <div>В час: ${gelsPerHour}</div>
-        <div>Основа расчёта: 1 гель = ${gelBasis} г углеводов</div>
-      </div>
-
-      ${planHtml}
-      ${warningsHtml}
-    `;
-  }
-
-  async function trackMiniappOpen() {
-    if (!tg) {
-      return;
-    }
-
-    try {
-      await fetch("https://race-nutrition-miniapp.onrender.com/api/track-open", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          source: "telegram_webapp"
-        })
-      });
-    } catch (err) {
-      console.log("track-open error", err);
-    }
-  }
-
-  async function checkTelegramAuth() {
-    if (!tg) {
-      authStatusText = "auth: вне Telegram";
-      renderServerStatus();
-      return;
-    }
-
-    const initData = typeof tg.initData === "string" ? tg.initData : "";
-
-    if (!initData) {
-      authStatusText = "auth: initData пустой";
-      renderServerStatus();
-      return;
-    }
-
-    authStatusText = "auth: проверяем...";
-    renderServerStatus();
-
-    try {
-      const res = await fetch("https://race-nutrition-miniapp.onrender.com/api/auth", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          initData: initData
-        })
-      });
-
-      const data = await res.json();
-
-      if (res.ok && data.ok) {
-        telegramAuthOk = true;
-        authStatusText = "auth: ok";
-      } else {
-        telegramAuthOk = false;
-        authStatusText = `auth: HTTP ${res.status}`;
+    function getInitData() {
+      if (!tg) {
+        return "";
       }
 
-      renderServerStatus();
-    } catch (err) {
-      telegramAuthOk = false;
-      authStatusText = "auth: ошибка запроса";
-      renderServerStatus();
+      return typeof tg.initData === "string" ? tg.initData : "";
     }
-  }
 
-  advancedToggleEl.addEventListener("click", () => {
-    setAdvancedOpen(true);
-  });
+    function parseNumberOrNull(value) {
+      if (value === "" || value === null || value === undefined) {
+        return null;
+      }
 
-  advancedCloseEl.addEventListener("click", () => {
-    setAdvancedOpen(false);
-  });
+      const num = Number(value);
+      return Number.isFinite(num) ? num : null;
+    }
 
-  historyLinkTopEl.addEventListener("click", () => {
-    resultEl.innerHTML = "Историю подключим следующим микрошагом.";
-  });
+    function buildDurationMinutes() {
+      const rawHours = durationHoursEl.value;
+      const rawMinutes = durationMinutesEl.value;
 
-  historyLinkBottomEl.addEventListener("click", () => {
-    resultEl.innerHTML = "Историю подключим следующим микрошагом.";
-  });
+      if (rawHours === "" && rawMinutes === "") {
+        return null;
+      }
 
-  calcBtn.addEventListener("click", async () => {
-    clearMessages();
-    resultEl.innerHTML = "Отправляю запрос.";
-    calcStatusText = "calc: проверяем.";
-    renderServerStatus();
+      const hours = parseNumberOrNull(rawHours) ?? 0;
+      const minutes = parseNumberOrNull(rawMinutes) ?? 0;
 
-    const payload = {
-      race_type: raceTypeEl.value,
-      duration_min: buildDurationMinutes(),
-      weight_kg: parseNumberOrNull(weightEl.value),
-      temperature_c: parseNumberOrNull(temperatureEl.value),
-      fuel_format: fuelFormatEl.value,
-      gi_tolerance_level: giToleranceEl.value,
+      return (hours * 60) + minutes;
+    }
 
-      effort_level: effortLevelEl.value || null,
-      humidity_pct: parseNumberOrNull(humidityEl.value),
-      distance_km: parseNumberOrNull(distanceEl.value),
-      sweat_rate_lph: parseNumberOrNull(sweatRateEl.value),
-      elevation_gain_m: parseNumberOrNull(elevationEl.value),
-      sodium_loss_profile: sodiumLossProfileEl.value || null
-    };
+    function clearMessages() {
+      errorsListEl.innerHTML = "";
+      errorsBoxEl.classList.add("hidden");
+    }
 
-    const initData = tg && typeof tg.initData === "string" ? tg.initData : "";
+    function showList(listEl, boxEl, items) {
+      listEl.innerHTML = "";
 
-    try {
-      const res = await fetch("https://race-nutrition-miniapp.onrender.com/api/calc", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(initData ? { Authorization: `tma ${initData}` } : {})
-        },
-        body: JSON.stringify(payload)
+      items.forEach((item) => {
+        const li = document.createElement("li");
+        li.textContent = item;
+        listEl.appendChild(li);
       });
 
-      const data = await res.json();
-      calcStatusText = `calc: HTTP ${res.status}`;
-      renderServerStatus();
+      boxEl.classList.remove("hidden");
+    }
 
-      if (data.ok === false) {
-        showList(errorsListEl, errorsBoxEl, data.errors || ["Неизвестная ошибка"]);
-        resultEl.innerHTML = "Расчёт не выполнен.";
+    function roundTo5(value) {
+      return Math.round(Number(value) / 5) * 5;
+    }
+
+    function roundToHalf(value) {
+      return Math.round(Number(value) * 2) / 2;
+    }
+
+    function formatDuration(durationMin) {
+      const totalMin = Number(durationMin || 0);
+      const hours = Math.floor(totalMin / 60);
+      const minutes = totalMin % 60;
+
+      if (hours > 0) {
+        return `${hours} ч ${String(minutes).padStart(2, "0")} мин`;
+      }
+
+      return `${minutes} мин`;
+    }
+
+    function formatDateTime(value) {
+      if (!value) {
+        return "Дата неизвестна";
+      }
+
+      const date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) {
+        return "Дата неизвестна";
+      }
+
+      return date.toLocaleString("ru-RU", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function raceTypeLabel(value) {
+      if (value === "road") return "Шоссе";
+      if (value === "trail") return "Трейл";
+      if (value === "ultra") return "Ультра";
+      return value || "Гонка";
+    }
+
+    function renderHistoryLoading() {
+      historyContentEl.innerHTML = `<p class="history-loading">Загрузка истории...</p>`;
+    }
+
+    function renderHistoryError(message) {
+      historyContentEl.innerHTML = `<p class="history-error">${escapeHtml(message)}</p>`;
+    }
+
+    function renderHistoryEmpty() {
+      historyContentEl.innerHTML = `<p class="history-placeholder">Пока сохранённых расчётов нет. Сделай первый расчёт в Telegram, и он появится здесь.</p>`;
+    }
+
+    function renderHistoryItems(items) {
+      if (!Array.isArray(items) || items.length === 0) {
+        renderHistoryEmpty();
         return;
       }
 
-      resultEl.innerHTML = formatCalcResult(data);
-    } catch (err) {
-      calcStatusText = "calc: ошибка запроса";
-      renderServerStatus();
-      resultEl.innerHTML = escapeHtml(String(err));
-    }
-  });
+      historyContentEl.innerHTML = items.map((item) => {
+        const title = raceTypeLabel(item.race_type);
+        const duration = formatDuration(item.duration_min);
+        const createdAt = formatDateTime(item.created_at);
 
-  trackMiniappOpen();
-  checkTelegramAuth();
-</script>
+        const carbs = item.carbs_per_hour_g ?? "—";
+        const fluid = item.fluid_per_hour_ml ?? "—";
+        const sodium = item.sodium_per_hour_mg ?? "—";
+        const formula = item.formula_version || "—";
+
+        return `
+          <div class="history-item">
+            <div class="history-topline">
+              <div>
+                <p class="history-title">${escapeHtml(title)}</p>
+                <p class="history-meta">Длительность: ${escapeHtml(duration)} · Формула: ${escapeHtml(formula)}</p>
+              </div>
+              <p class="history-date">${escapeHtml(createdAt)}</p>
+            </div>
+
+            <div class="history-metrics">
+              <div>Углеводы: <strong>${escapeHtml(carbs)}</strong> г/ч</div>
+              <div>Жидкость: <strong>${escapeHtml(fluid)}</strong> мл/ч</div>
+              <div>Натрий: <strong>${escapeHtml(sodium)}</strong> мг/ч</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function loadHistory(showLoading = true) {
+      const initData = getInitData();
+
+      if (!tg) {
+        renderHistoryError("История доступна только внутри Telegram Mini App.");
+        return;
+      }
+
+      if (!initData) {
+        renderHistoryError("Telegram не передал initData для загрузки истории.");
+        return;
+      }
+
+      if (showLoading) {
+        renderHistoryLoading();
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/api/history`, {
+          method: "GET",
+          headers: {
+            Authorization: `tma ${initData}`
+          }
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || data.ok === false) {
+          renderHistoryError(data.error || `Ошибка загрузки истории: HTTP ${res.status}`);
+          return;
+        }
+
+        renderHistoryItems(Array.isArray(data.items) ? data.items : []);
+      } catch (err) {
+        renderHistoryError("Не удалось загрузить историю расчётов.");
+      }
+    }
+
+    function formatCalcResult(data) {
+      if (!data || !data.ok || !data.result) {
+        return `<div class="card"><strong>Нет данных для отображения результата.</strong></div>`;
+      }
+
+      const durationHuman = formatDuration(data.normalized_input?.duration_min);
+
+      const carbsTotal = Math.round(data.result.carbs?.carbs_total_g ?? 0);
+      const carbsPerHour = Math.round(data.result.carbs?.carbs_per_hour_g ?? 0);
+      const carbInterval = Math.round(data.result.carbs?.carb_interval_min ?? 0);
+      const carbsPerIntake = Math.round(data.result.carbs?.carbs_per_intake_g ?? 0);
+
+      const fluidTotal = Math.round(data.result.fluid?.fluid_total_ml ?? 0);
+      const fluidPerHour = Math.round(data.result.fluid?.fluid_per_hour_ml ?? 0);
+      const fluidInterval = Math.round(data.result.fluid?.fluid_interval_min ?? 0);
+      const fluidPerIntake = roundTo5(data.result.fluid?.fluid_per_intake_ml ?? 0);
+
+      const sodiumTotal = Math.round(data.result.sodium?.sodium_total_mg ?? 0);
+      const sodiumPerHour = Math.round(data.result.sodium?.sodium_per_hour_mg ?? 0);
+      const sodiumInterval = Math.round(data.result.sodium?.sodium_interval_min ?? 0);
+      const sodiumPerIntake = Math.round(data.result.sodium?.sodium_per_intake_mg ?? 0);
+
+      const gelsTotal = roundToHalf(data.result.gel_equivalent?.gels_total_est ?? 0);
+      const gelsPerHour = roundToHalf(data.result.gel_equivalent?.gels_per_hour_est ?? 0);
+      const gelBasis = Math.round(data.result.gel_equivalent?.gel_basis_g ?? 25);
+
+      const summary = `На ${durationHuman} тебе нужен план: около ${carbsPerHour} г углеводов в час, ${fluidPerHour} мл жидкости в час и ${sodiumPerHour} мг натрия в час.`;
+
+      const planSteps = Array.isArray(data.plan?.plan_steps) ? data.plan.plan_steps : [];
+      const warnings = Array.isArray(data.warnings) ? data.warnings : [];
+
+      const planHtml = planSteps.length
+        ? `
+          <div class="card">
+            <h3>Как действовать на гонке</h3>
+            <ul>
+              ${planSteps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}
+            </ul>
+          </div>
+        `
+        : "";
+
+      const warningsHtml = warnings.length
+        ? `
+          <div class="card">
+            <h3>Что учесть</h3>
+            <ul>
+              ${warnings.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+            </ul>
+          </div>
+        `
+        : "";
+
+      return `
+        <div class="card">
+          <h2>План на гонку</h2>
+          <p>${summary}</p>
+          <div>Длительность: ${durationHuman}</div>
+        </div>
+
+        <div class="card">
+          <h3>Углеводы</h3>
+          <div>Всего: ${carbsTotal} г</div>
+          <div>В час: ${carbsPerHour} г</div>
+          <div>Интервал: каждые ${carbInterval} мин</div>
+          <div>За приём: ${carbsPerIntake} г</div>
+        </div>
+
+        <div class="card">
+          <h3>Жидкость</h3>
+          <div>Всего: ${fluidTotal} мл</div>
+          <div>В час: ${fluidPerHour} мл</div>
+          <div>Интервал: каждые ${fluidInterval} мин</div>
+          <div>За приём: ${fluidPerIntake} мл</div>
+        </div>
+
+        <div class="card">
+          <h3>Натрий</h3>
+          <div>Всего: ${sodiumTotal} мг</div>
+          <div>В час: ${sodiumPerHour} мг</div>
+          <div>Интервал: каждые ${sodiumInterval} мин</div>
+          <div>За приём: ${sodiumPerIntake} мг</div>
+        </div>
+
+        <div class="card">
+          <h3>Эквивалент в гелях</h3>
+          <div>Всего: ${gelsTotal}</div>
+          <div>В час: ${gelsPerHour}</div>
+          <div>Основа расчёта: 1 гель = ${gelBasis} г углеводов</div>
+        </div>
+
+        ${planHtml}
+        ${warningsHtml}
+      `;
+    }
+
+    async function trackMiniappOpen() {
+      if (!tg) {
+        return;
+      }
+
+      try {
+        await fetch(`${API_BASE}/api/track-open`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            source: "telegram_webapp"
+          })
+        });
+      } catch (err) {
+        console.log("track-open error", err);
+      }
+    }
+
+    async function checkTelegramAuth() {
+      const initData = getInitData();
+
+      if (!tg) {
+        authStatusText = "auth: вне Telegram";
+        renderServerStatus();
+        return;
+      }
+
+      if (!initData) {
+        authStatusText = "auth: initData пустой";
+        renderServerStatus();
+        return;
+      }
+
+      authStatusText = "auth: проверяем...";
+      renderServerStatus();
+
+      try {
+        const res = await fetch(`${API_BASE}/api/auth`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            initData: initData
+          })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.ok) {
+          telegramAuthOk = true;
+          authStatusText = "auth: ok";
+        } else {
+          telegramAuthOk = false;
+          authStatusText = `auth: HTTP ${res.status}`;
+        }
+
+        renderServerStatus();
+      } catch (err) {
+        telegramAuthOk = false;
+        authStatusText = "auth: ошибка запроса";
+        renderServerStatus();
+      }
+    }
+
+    advancedToggleEl.addEventListener("click", () => {
+      setAdvancedOpen(true);
+    });
+
+    advancedCloseEl.addEventListener("click", () => {
+      setAdvancedOpen(false);
+    });
+
+    historyLinkTopEl.addEventListener("click", () => {
+      historyCardEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    historyRefreshBtnEl.addEventListener("click", async () => {
+      await loadHistory(true);
+    });
+
+    calcBtn.addEventListener("click", async () => {
+      clearMessages();
+      resultEl.innerHTML = "Отправляю запрос.";
+      calcStatusText = "calc: проверяем.";
+      renderServerStatus();
+
+      const payload = {
+        race_type: raceTypeEl.value,
+        duration_min: buildDurationMinutes(),
+        weight_kg: parseNumberOrNull(weightEl.value),
+        temperature_c: parseNumberOrNull(temperatureEl.value),
+        fuel_format: fuelFormatEl.value,
+        gi_tolerance_level: giToleranceEl.value,
+
+        effort_level: effortLevelEl.value || null,
+        humidity_pct: parseNumberOrNull(humidityEl.value),
+        distance_km: parseNumberOrNull(distanceEl.value),
+        sweat_rate_lph: parseNumberOrNull(sweatRateEl.value),
+        elevation_gain_m: parseNumberOrNull(elevationEl.value),
+        sodium_loss_profile: sodiumLossProfileEl.value || null
+      };
+
+      const initData = getInitData();
+
+      try {
+        const res = await fetch(`${API_BASE}/api/calc`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(initData ? { Authorization: `tma ${initData}` } : {})
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        calcStatusText = `calc: HTTP ${res.status}`;
+        renderServerStatus();
+
+        if (data.ok === false) {
+          showList(errorsListEl, errorsBoxEl, data.errors || ["Неизвестная ошибка"]);
+          resultEl.innerHTML = "Расчёт не выполнен.";
+          return;
+        }
+
+        resultEl.innerHTML = formatCalcResult(data);
+        await loadHistory(false);
+      } catch (err) {
+        calcStatusText = "calc: ошибка запроса";
+        renderServerStatus();
+        resultEl.innerHTML = escapeHtml(String(err));
+      }
+    });
+
+    renderServerStatus();
+    setAdvancedOpen(false);
+
+    if (tg) {
+      tg.ready();
+      tg.expand();
+
+      statusEl.textContent = "Открыто внутри Telegram WebApp ✅";
+
+      const user = tg.initDataUnsafe && tg.initDataUnsafe.user
+        ? tg.initDataUnsafe.user
+        : null;
+
+      if (user) {
+        const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ");
+        const username = user.username ? "(@" + user.username + ")" : "";
+        userEl.textContent = (fullName || "Без имени") + " " + username;
+      } else {
+        userEl.textContent = "Пользователь не передан";
+      }
+    } else {
+      statusEl.textContent = "Открыто вне Telegram ⚠️";
+      userEl.textContent = "Нет данных пользователя";
+      authStatusText = "auth: вне Telegram";
+      renderServerStatus();
+    }
+
+    trackMiniappOpen();
+    checkTelegramAuth();
+    loadHistory(true);
+  </script>
 </body>
 </html>
