@@ -47,28 +47,35 @@
       margin: 0 auto;
     }
 
-    .app-header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 16px;
+    .top-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
     }
 
-    .title-wrap h1 {
-      margin: 0 0 6px;
-      font-size: 24px;
-      line-height: 1.15;
+    .top-action-btn {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: var(--radius-control);
+      min-height: 44px;
+      padding: 10px 12px;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
     }
 
-    .subtitle {
-      margin: 0;
+    .top-note {
+      margin: 0 0 16px;
       color: var(--text-secondary);
       font-size: 14px;
       line-height: 1.45;
     }
 
-    .ghost-btn,
     .link-btn {
       appearance: none;
       border: none;
@@ -310,13 +317,6 @@
       margin-bottom: 10px;
     }
 
-    .result-hero {
-      font-size: 18px;
-      line-height: 1.5;
-      margin-top: 0;
-      margin-bottom: 12px;
-    }
-
     .result-meta {
       color: var(--text-secondary);
       font-size: 14px;
@@ -459,13 +459,12 @@
 </head>
 <body>
   <div class="app">
-    <div class="app-header">
-      <div class="title-wrap">
-        <h1>Race Nutrition</h1>
-        <p class="subtitle">Быстрый расчёт углеводов, жидкости и натрия для гонки. Обязательных полей немного, остальные можно уточнить позже.</p>
-      </div>
-      <button id="history-link-top" class="ghost-btn" type="button">История</button>
+    <div class="top-actions">
+      <button id="fields-help-toggle" class="top-action-btn" type="button" aria-expanded="false" aria-controls="fields-help-box">Как заполнять</button>
+      <button id="history-link-top" class="top-action-btn" type="button">История</button>
     </div>
+
+    <p class="top-note">Заполни основные поля и нажми «Рассчитать план». Дополнительные поля повышают точность, но не являются обязательными.</p>
 
     <div class="debug-meta hidden" aria-hidden="true">
       <div id="status">проверяю...</div>
@@ -474,54 +473,40 @@
     </div>
 
     <div class="card">
-      <h2 class="section-title">План питания на гонку</h2>
-      <p class="muted">Заполни основные поля и нажми «Рассчитать план». Дополнительные поля можно открыть ниже.</p>
-
       <div class="help-accordion">
-        <button
-          id="fields-help-toggle"
-          class="help-accordion-toggle"
-          type="button"
-          aria-expanded="false"
-          aria-controls="fields-help-box"
-        >
-          <span>Что означают эти поля</span>
-          <span id="fields-help-icon" class="help-accordion-icon">▾</span>
-        </button>
-
         <div id="fields-help-box" class="help-accordion-content hidden">
           <div class="help-note-section">
             <div class="help-note-title">Длительность гонки</div>
             <p class="help-note-text">
               Это ожидаемое время всей гонки.<br>
-              Пример: если планируешь бежать 3 часа 30 минут — укажи 3 и 30.
+              Пример: если планируешь бежать 3 часа 30 минут - укажи 3 и 30.
             </p>
           </div>
 
           <div class="help-note-section">
             <div class="help-note-title">Формат питания</div>
             <p class="help-note-text">
-              <strong>Углеводы только из напитка</strong> — если хочешь получать их в основном из изотоника или другого углеводного напитка.<br>
-              <strong>Гели</strong> — если основной источник углеводов у тебя гели.<br>
-              <strong>Гели + напиток</strong> — если часть углеводов идёт из напитка, а часть из гелей.
+              <strong>Углеводы только из напитка</strong> - если хочется получать их в основном из изотоника или другого углеводного напитка.<br>
+              <strong>Гели</strong> - если основной источник углеводов - гели.<br>
+              <strong>Гели + напиток</strong> - если часть углеводов идёт из напитка, а часть из гелей.
             </p>
           </div>
 
           <div class="help-note-section">
             <div class="help-note-title">Переносимость углеводов</div>
             <p class="help-note-text">
-              <strong>Низкая</strong> — часто бывают тяжесть, вздутие или тошнота.<br>
-              <strong>Средняя</strong> — обычно переносишь нормально.<br>
-              <strong>Высокая</strong> — можешь принимать углеводы часто и без заметного дискомфорта.
+              <strong>Низкая</strong> - часто бывают тяжесть, вздутие или тошнота.<br>
+              <strong>Средняя</strong> - обычно переносимость нормальная.<br>
+              <strong>Высокая</strong> - можно принимать углеводы часто и без заметного дискомфорта.
             </p>
           </div>
 
           <div class="help-note-section">
             <div class="help-note-title">Планируемая интенсивность</div>
             <p class="help-note-text">
-              <strong>Низкая</strong> — задача добежать комфортно.<br>
-              <strong>Средняя</strong> — обычный рабочий старт.<br>
-              <strong>Высокая</strong> — если планируешь бежать близко к пределу.
+              <strong>Низкая</strong> - задача добежать комфортно.<br>
+              <strong>Средняя</strong> - обычный рабочий старт.<br>
+              <strong>Высокая</strong> - если планируется бег близко к пределу.
             </p>
           </div>
 
@@ -529,16 +514,16 @@
             <div class="help-note-title">Потоотделение</div>
             <p class="help-note-text">
               Это индивидуальная скорость потерь жидкости за час.<br>
-              Если не измерял — оставь поле пустым.
+              Если не измерял(а) - оставь поле пустым.
             </p>
           </div>
 
           <div class="help-note-section">
             <div class="help-note-title">Потери натрия с потом</div>
             <p class="help-note-text">
-              <strong>Низкие</strong> — почти нет соляных следов на одежде или коже.<br>
-              <strong>Средние</strong> — обычный вариант по умолчанию.<br>
-              <strong>Высокие</strong> — заметные белые соляные следы, очень солёный пот, часто соль на лице или одежде.
+              <strong>Низкие</strong> - почти нет соляных следов на одежде или коже.<br>
+              <strong>Средние</strong> - обычный вариант по умолчанию.<br>
+              <strong>Высокие</strong> - заметные белые соляные следы, очень солёный пот, часто соль на лице или одежде.
             </p>
           </div>
         </div>
@@ -598,7 +583,7 @@
       <div class="advanced-header">
         <h2 class="advanced-title">Дополнительные данные</h2>
       </div>
-      <p class="muted">Без этих полей расчёт тоже работает. Но если ты знаешь эти данные, результат будет точнее.</p>
+      <p class="muted">Без этих полей расчёт тоже работает. Но если эти данные известны, результат будет точнее.</p>
 
       <div class="row">
         <label for="effort_level">Планируемая интенсивность</label>
@@ -703,7 +688,6 @@
     const advancedCardEl = document.getElementById("advanced-card");
     const fieldsHelpToggleEl = document.getElementById("fields-help-toggle");
     const fieldsHelpBoxEl = document.getElementById("fields-help-box");
-    const fieldsHelpIconEl = document.getElementById("fields-help-icon");
     const historyLinkTopEl = document.getElementById("history-link-top");
     const historyRefreshBtnEl = document.getElementById("history-refresh-btn");
     const historyCardEl = document.getElementById("history-card");
@@ -729,7 +713,6 @@
     function setFieldsHelpOpen(isOpen) {
       fieldsHelpBoxEl.classList.toggle("hidden", !isOpen);
       fieldsHelpToggleEl.setAttribute("aria-expanded", String(isOpen));
-      fieldsHelpIconEl.textContent = isOpen ? "▴" : "▾";
     }
 
     function getInitData() {
@@ -955,7 +938,7 @@
       const gelsPerHour = roundToHalf(data.result.gel_equivalent?.gels_per_hour_est ?? 0);
       const gelBasis = Math.round(data.result.gel_equivalent?.gel_basis_g ?? 25);
 
-      const summary = "Ниже — подробная разбивка по углеводам, жидкости и натрию на всю гонку.";
+      const summary = "Ниже - подробная разбивка по углеводам, жидкости и натрию на всю гонку.";
       const keyTakeaway = "Главное: начни питание и питьё рано и держи ровный ритм всю гонку.";
 
       const planSteps = Array.isArray(data.plan?.plan_steps) ? data.plan.plan_steps : [];
