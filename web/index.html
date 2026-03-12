@@ -297,6 +297,34 @@
       color: var(--text);
     }
 
+    .result-state {
+      border: 1px dashed var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      background: #F9FAFB;
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .result-state-title {
+      margin: 0 0 6px;
+      font-size: 15px;
+      line-height: 1.35;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .result-state-text {
+      margin: 0;
+    }
+
+    .result-state-error {
+      background: var(--error-bg);
+      border: 1px solid #FECACA;
+      color: var(--error-text);
+    }
+
     .history-list {
       display: grid;
       gap: 12px;
@@ -502,7 +530,12 @@
 
     <div class="card">
       <h2 class="section-title">Результат</h2>
-      <div id="result" class="result">Пока расчёта нет.</div>
+      <div id="result" class="result">
+        <div class="result-state">
+          <p class="result-state-title">План пока не рассчитан</p>
+          <p class="result-state-text">Заполни основные поля выше и нажми «Рассчитать план».</p>
+        </div>
+      </div>
     </div>
 
     <div class="card" id="history-card">
@@ -672,6 +705,15 @@
 
     function renderHistoryLoading() {
       historyContentEl.innerHTML = `<p class="history-loading">Загрузка истории...</p>`;
+    }
+
+    function renderResultState(title, text, isError = false) {
+      resultEl.innerHTML = `
+        <div class="result-state${isError ? " result-state-error" : ""}">
+          <p class="result-state-title">${escapeHtml(title)}</p>
+          <p class="result-state-text">${escapeHtml(text)}</p>
+        </div>
+      `;
     }
 
     function renderHistoryError(message) {
@@ -955,7 +997,7 @@
 
     calcBtn.addEventListener("click", async () => {
       clearMessages();
-      resultEl.innerHTML = "Отправляю запрос.";
+      renderResultState("Считаю план", "Проверяю данные и собираю рекомендации под твою гонку.");
       calcStatusText = "calc: проверяем.";
       renderServerStatus();
 
@@ -993,7 +1035,7 @@
 
         if (data.ok === false) {
           showList(errorsListEl, errorsBoxEl, data.errors || ["Неизвестная ошибка"]);
-          resultEl.innerHTML = "Расчёт не выполнен.";
+          renderResultState("Расчёт не выполнен", "Исправь поля выше и попробуй ещё раз.", true);
           return;
         }
 
@@ -1002,7 +1044,7 @@
       } catch (err) {
         calcStatusText = "calc: ошибка запроса";
         renderServerStatus();
-        resultEl.innerHTML = escapeHtml(String(err));
+        renderResultState("Не удалось получить результат", "Проверь соединение и попробуй ещё раз.", true);
       }
     });
 
