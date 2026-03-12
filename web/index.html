@@ -125,62 +125,62 @@
       margin-bottom: 0;
     }
 
-    .inline-help {
-      margin: 0 0 12px;
+    .help-accordion {
+      margin: 0 0 16px;
     }
 
-    .inline-help-btn {
+    .help-accordion-toggle {
+      width: 100%;
       appearance: none;
-      border: none;
-      background: transparent;
-      color: var(--accent);
-      padding: 0;
-      margin: 0;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
       font: inherit;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
+      font-size: 15px;
+      font-weight: 700;
       text-align: left;
+      cursor: pointer;
     }
 
-    .inline-help-box {
+    .help-accordion-icon {
+      font-size: 18px;
+      line-height: 1;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+
+    .help-accordion-content {
       margin-top: 10px;
-      padding: 14px;
+      padding: 14px 16px;
       border: 1px solid var(--border);
       border-radius: 14px;
       background: #F9FAFB;
     }
 
-    .inline-help-box h3 {
-      margin: 0 0 10px;
+    .help-note-section + .help-note-section {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    .help-note-title {
       font-size: 15px;
-      line-height: 1.35;
-    }
-
-    .inline-help-box h4 {
+      font-weight: 700;
       margin: 0 0 6px;
-      font-size: 14px;
-      line-height: 1.35;
+      color: var(--text);
     }
 
-    .inline-help-box p {
-      margin: 0 0 10px;
-      color: var(--text-secondary);
+    .help-note-text {
       font-size: 14px;
       line-height: 1.5;
-    }
-
-    .inline-help-box p:last-child,
-    .inline-help-box .help-item:last-child p:last-child {
-      margin-bottom: 0;
-    }
-
-    .help-item {
-      margin-bottom: 12px;
-    }
-
-    .help-item:last-child {
-      margin-bottom: 0;
+      color: var(--text-secondary);
+      margin: 0;
     }
 
     label {
@@ -477,6 +477,73 @@
       <h2 class="section-title">План питания на гонку</h2>
       <p class="muted">Заполни основные поля и нажми «Рассчитать план». Дополнительные поля можно открыть ниже.</p>
 
+      <div class="help-accordion">
+        <button
+          id="fields-help-toggle"
+          class="help-accordion-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="fields-help-box"
+        >
+          <span>Что означают эти поля</span>
+          <span id="fields-help-icon" class="help-accordion-icon">▾</span>
+        </button>
+
+        <div id="fields-help-box" class="help-accordion-content hidden">
+          <div class="help-note-section">
+            <div class="help-note-title">Длительность гонки</div>
+            <p class="help-note-text">
+              Это ожидаемое время всей гонки.<br>
+              Пример: если планируешь бежать 3 часа 30 минут — укажи 3 и 30.
+            </p>
+          </div>
+
+          <div class="help-note-section">
+            <div class="help-note-title">Формат питания</div>
+            <p class="help-note-text">
+              <strong>Углеводы только из напитка</strong> — если хочешь получать их в основном из изотоника или другого углеводного напитка.<br>
+              <strong>Гели</strong> — если основной источник углеводов у тебя гели.<br>
+              <strong>Гели + напиток</strong> — если часть углеводов идёт из напитка, а часть из гелей.
+            </p>
+          </div>
+
+          <div class="help-note-section">
+            <div class="help-note-title">Переносимость углеводов</div>
+            <p class="help-note-text">
+              <strong>Низкая</strong> — часто бывают тяжесть, вздутие или тошнота.<br>
+              <strong>Средняя</strong> — обычно переносишь нормально.<br>
+              <strong>Высокая</strong> — можешь принимать углеводы часто и без заметного дискомфорта.
+            </p>
+          </div>
+
+          <div class="help-note-section">
+            <div class="help-note-title">Планируемая интенсивность</div>
+            <p class="help-note-text">
+              <strong>Низкая</strong> — задача добежать комфортно.<br>
+              <strong>Средняя</strong> — обычный рабочий старт.<br>
+              <strong>Высокая</strong> — если планируешь бежать близко к пределу.
+            </p>
+          </div>
+
+          <div class="help-note-section">
+            <div class="help-note-title">Потоотделение</div>
+            <p class="help-note-text">
+              Это индивидуальная скорость потерь жидкости за час.<br>
+              Если не измерял — оставь поле пустым.
+            </p>
+          </div>
+
+          <div class="help-note-section">
+            <div class="help-note-title">Потери натрия с потом</div>
+            <p class="help-note-text">
+              <strong>Низкие</strong> — почти нет соляных следов на одежде или коже.<br>
+              <strong>Средние</strong> — обычный вариант по умолчанию.<br>
+              <strong>Высокие</strong> — заметные белые соляные следы, очень солёный пот, часто соль на лице или одежде.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div class="row">
         <label for="race_type">Тип гонки</label>
         <select id="race_type">
@@ -520,52 +587,6 @@
           <option value="medium" selected>Средняя</option>
           <option value="high">Высокая</option>
         </select>
-      </div>
-
-      <div class="inline-help">
-        <button id="fields-help-toggle" class="inline-help-btn" type="button">Что означают поля</button>
-
-        <div id="fields-help-box" class="inline-help-box hidden">
-          <h3>Что означают поля</h3>
-
-          <div class="help-item">
-            <h4>Длительность гонки</h4>
-            <p>Это ожидаемое время всей гонки. Пример: если планируешь бежать 3 часа 30 минут — укажи 3 и 30.</p>
-          </div>
-
-          <div class="help-item">
-            <h4>Формат питания</h4>
-            <p><strong>Углеводы только из напитка</strong> — если хочешь получать их в основном из изотоника или другого углеводного напитка.</p>
-            <p><strong>Гели</strong> — если основной источник углеводов у тебя гели.</p>
-            <p><strong>Гели + напиток</strong> — если часть углеводов идёт из напитка, а часть из гелей.</p>
-          </div>
-
-          <div class="help-item">
-            <h4>Переносимость углеводов</h4>
-            <p><strong>Низкая</strong> — часто бывают тяжесть, вздутие или тошнота.</p>
-            <p><strong>Средняя</strong> — обычно переносишь нормально.</p>
-            <p><strong>Высокая</strong> — можешь принимать углеводы часто и без заметного дискомфорта.</p>
-          </div>
-
-          <div class="help-item">
-            <h4>Планируемая интенсивность</h4>
-            <p><strong>Низкая</strong> — задача добежать комфортно.</p>
-            <p><strong>Средняя</strong> — обычный рабочий старт.</p>
-            <p><strong>Высокая</strong> — если планируешь бежать близко к пределу.</p>
-          </div>
-
-          <div class="help-item">
-            <h4>Потоотделение</h4>
-            <p>Это индивидуальная скорость потерь жидкости за час. Если не измерял — оставь поле пустым.</p>
-          </div>
-
-          <div class="help-item">
-            <h4>Потери натрия с потом</h4>
-            <p><strong>Низкие</strong> — почти нет соляных следов на одежде или коже.</p>
-            <p><strong>Средние</strong> — обычный вариант по умолчанию.</p>
-            <p><strong>Высокие</strong> — заметные белые соляные следы, очень солёный пот, часто соль на лице или одежде.</p>
-          </div>
-        </div>
       </div>
 
       <div class="advanced-actions">
@@ -621,7 +642,7 @@
       </div>
     </div>
 
-        <div class="card">
+    <div class="card">
       <button id="calc-btn" class="primary-btn" type="button">Рассчитать план</button>
     </div>
 
@@ -682,6 +703,7 @@
     const advancedCardEl = document.getElementById("advanced-card");
     const fieldsHelpToggleEl = document.getElementById("fields-help-toggle");
     const fieldsHelpBoxEl = document.getElementById("fields-help-box");
+    const fieldsHelpIconEl = document.getElementById("fields-help-icon");
     const historyLinkTopEl = document.getElementById("history-link-top");
     const historyRefreshBtnEl = document.getElementById("history-refresh-btn");
     const historyCardEl = document.getElementById("history-card");
@@ -706,7 +728,8 @@
 
     function setFieldsHelpOpen(isOpen) {
       fieldsHelpBoxEl.classList.toggle("hidden", !isOpen);
-      fieldsHelpToggleEl.textContent = isOpen ? "Скрыть подсказку" : "Что означают поля";
+      fieldsHelpToggleEl.setAttribute("aria-expanded", String(isOpen));
+      fieldsHelpIconEl.textContent = isOpen ? "▴" : "▾";
     }
 
     function getInitData() {
