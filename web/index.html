@@ -469,7 +469,7 @@
       </div>
 
       <div class="advanced-actions">
-        <button id="advanced-toggle" class="toggle-btn" type="button">+ Уточнить расчёт</button>
+        <button id="advanced-toggle" class="toggle-btn" type="button">Показать дополнительные поля</button>
         <button id="calc-btn" class="primary-btn" type="button">Рассчитать план</button>
       </div>
     </div>
@@ -477,7 +477,6 @@
     <div id="advanced-card" class="card hidden">
       <div class="advanced-header">
         <h2 class="advanced-title">Дополнительные данные</h2>
-        <button id="advanced-close" class="link-btn" type="button">Скрыть</button>
       </div>
       <p class="muted">Без этих полей расчёт тоже работает. Но если ты знаешь эти данные, результат будет точнее.</p>
 
@@ -577,7 +576,6 @@
 
     const calcBtn = document.getElementById("calc-btn");
     const advancedToggleEl = document.getElementById("advanced-toggle");
-    const advancedCloseEl = document.getElementById("advanced-close");
     const advancedCardEl = document.getElementById("advanced-card");
     const historyLinkTopEl = document.getElementById("history-link-top");
     const historyRefreshBtnEl = document.getElementById("history-refresh-btn");
@@ -598,7 +596,7 @@
 
     function setAdvancedOpen(isOpen) {
       advancedCardEl.classList.toggle("hidden", !isOpen);
-      advancedToggleEl.textContent = isOpen ? "Дополнительные поля открыты" : "+ Уточнить расчёт";
+      advancedToggleEl.textContent = isOpen ? "Скрыть дополнительные поля" : "Показать дополнительные поля";
     }
 
     function getInitData() {
@@ -980,11 +978,8 @@
     }
 
     advancedToggleEl.addEventListener("click", () => {
-      setAdvancedOpen(true);
-    });
-
-    advancedCloseEl.addEventListener("click", () => {
-      setAdvancedOpen(false);
+      const isOpen = !advancedCardEl.classList.contains("hidden");
+      setAdvancedOpen(!isOpen);
     });
 
     historyLinkTopEl.addEventListener("click", () => {
