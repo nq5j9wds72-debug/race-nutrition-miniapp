@@ -118,10 +118,68 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 12px;
-      margin-bottom: 12px;
+      margin-bottom: 0;
     }
 
     .duration-inline .row {
+      margin-bottom: 0;
+    }
+
+    .inline-help {
+      margin: 0 0 12px;
+    }
+
+    .inline-help-btn {
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: var(--accent);
+      padding: 0;
+      margin: 0;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .inline-help-box {
+      margin-top: 10px;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #F9FAFB;
+    }
+
+    .inline-help-box h3 {
+      margin: 0 0 10px;
+      font-size: 15px;
+      line-height: 1.35;
+    }
+
+    .inline-help-box h4 {
+      margin: 0 0 6px;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    .inline-help-box p {
+      margin: 0 0 10px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .inline-help-box p:last-child,
+    .inline-help-box .help-item:last-child p:last-child {
+      margin-bottom: 0;
+    }
+
+    .help-item {
+      margin-bottom: 12px;
+    }
+
+    .help-item:last-child {
       margin-bottom: 0;
     }
 
@@ -428,15 +486,11 @@
         </select>
       </div>
 
-      <div class="duration-inline">
-        <div class="row">
-          <label for="duration_hours">Часы</label>
-          <input id="duration_hours" type="number" min="0" max="36" placeholder="6" />
-        </div>
-
-        <div class="row">
-          <label for="duration_minutes">Минуты</label>
-          <input id="duration_minutes" type="number" min="0" max="59" placeholder="30" />
+      <div class="row">
+        <label for="duration_hours">Длительность гонки</label>
+        <div class="duration-inline">
+          <input id="duration_hours" type="number" min="0" max="36" placeholder="Часы" aria-label="Часы" />
+          <input id="duration_minutes" type="number" min="0" max="59" placeholder="Минуты" aria-label="Минуты" />
         </div>
       </div>
 
@@ -453,9 +507,9 @@
       <div class="row">
         <label for="fuel_format">Формат питания</label>
         <select id="fuel_format">
-          <option value="drink_only">Только питьё</option>
+          <option value="drink_only">Углеводы только из напитка</option>
           <option value="gels">Гели</option>
-          <option value="combo">Комбинированно</option>
+          <option value="combo">Гели + напиток</option>
         </select>
       </div>
 
@@ -468,9 +522,55 @@
         </select>
       </div>
 
+      <div class="inline-help">
+        <button id="fields-help-toggle" class="inline-help-btn" type="button">Что означают поля</button>
+
+        <div id="fields-help-box" class="inline-help-box hidden">
+          <h3>Что означают поля</h3>
+
+          <div class="help-item">
+            <h4>Длительность гонки</h4>
+            <p>Это ожидаемое время всей гонки. Пример: если планируешь бежать 3 часа 30 минут — укажи 3 и 30.</p>
+          </div>
+
+          <div class="help-item">
+            <h4>Формат питания</h4>
+            <p><strong>Углеводы только из напитка</strong> — если хочешь получать их в основном из изотоника или другого углеводного напитка.</p>
+            <p><strong>Гели</strong> — если основной источник углеводов у тебя гели.</p>
+            <p><strong>Гели + напиток</strong> — если часть углеводов идёт из напитка, а часть из гелей.</p>
+          </div>
+
+          <div class="help-item">
+            <h4>Переносимость углеводов</h4>
+            <p><strong>Низкая</strong> — часто бывают тяжесть, вздутие или тошнота.</p>
+            <p><strong>Средняя</strong> — обычно переносишь нормально.</p>
+            <p><strong>Высокая</strong> — можешь принимать углеводы часто и без заметного дискомфорта.</p>
+          </div>
+
+          <div class="help-item">
+            <h4>Планируемая интенсивность</h4>
+            <p><strong>Низкая</strong> — задача добежать комфортно.</p>
+            <p><strong>Средняя</strong> — обычный рабочий старт.</p>
+            <p><strong>Высокая</strong> — если планируешь бежать близко к пределу.</p>
+          </div>
+
+          <div class="help-item">
+            <h4>Потоотделение</h4>
+            <p>Это индивидуальная скорость потерь жидкости за час. Если не измерял — оставь поле пустым.</p>
+          </div>
+
+          <div class="help-item">
+            <h4>Потери натрия с потом</h4>
+            <p><strong>Низкие</strong> — почти нет соляных следов на одежде или коже.</p>
+            <p><strong>Средние</strong> — обычный вариант по умолчанию.</p>
+            <p><strong>Высокие</strong> — заметные белые соляные следы, очень солёный пот, часто соль на лице или одежде.</p>
+          </div>
+        </div>
+      </div>
+
       <div class="advanced-actions">
-  <button id="advanced-toggle" class="toggle-btn" type="button">Показать дополнительные поля</button>
-</div>
+        <button id="advanced-toggle" class="toggle-btn" type="button">Показать дополнительные поля</button>
+      </div>
     </div>
 
     <div id="advanced-card" class="card hidden">
@@ -480,12 +580,12 @@
       <p class="muted">Без этих полей расчёт тоже работает. Но если ты знаешь эти данные, результат будет точнее.</p>
 
       <div class="row">
-        <label for="effort_level">Интенсивность нагрузки</label>
+        <label for="effort_level">Планируемая интенсивность</label>
         <select id="effort_level">
           <option value="">Не выбрано</option>
-          <option value="easy">Легко</option>
-          <option value="steady">Умеренно</option>
-          <option value="race">Соревнование</option>
+          <option value="easy">Низкая</option>
+          <option value="steady">Средняя</option>
+          <option value="race">Высокая</option>
         </select>
       </div>
 
@@ -510,7 +610,7 @@
       </div>
 
       <div class="row">
-        <label for="sodium_loss_profile">Профиль потерь натрия</label>
+        <label for="sodium_loss_profile">Потери натрия с потом</label>
         <select id="sodium_loss_profile">
           <option value="">Не выбрано</option>
           <option value="low">Низкие</option>
@@ -580,6 +680,8 @@
     const calcBtn = document.getElementById("calc-btn");
     const advancedToggleEl = document.getElementById("advanced-toggle");
     const advancedCardEl = document.getElementById("advanced-card");
+    const fieldsHelpToggleEl = document.getElementById("fields-help-toggle");
+    const fieldsHelpBoxEl = document.getElementById("fields-help-box");
     const historyLinkTopEl = document.getElementById("history-link-top");
     const historyRefreshBtnEl = document.getElementById("history-refresh-btn");
     const historyCardEl = document.getElementById("history-card");
@@ -600,6 +702,11 @@
     function setAdvancedOpen(isOpen) {
       advancedCardEl.classList.toggle("hidden", !isOpen);
       advancedToggleEl.textContent = isOpen ? "Скрыть дополнительные поля" : "Показать дополнительные поля";
+    }
+
+    function setFieldsHelpOpen(isOpen) {
+      fieldsHelpBoxEl.classList.toggle("hidden", !isOpen);
+      fieldsHelpToggleEl.textContent = isOpen ? "Скрыть подсказку" : "Что означают поля";
     }
 
     function getInitData() {
@@ -985,6 +1092,11 @@
       setAdvancedOpen(!isOpen);
     });
 
+    fieldsHelpToggleEl.addEventListener("click", () => {
+      const isOpen = !fieldsHelpBoxEl.classList.contains("hidden");
+      setFieldsHelpOpen(!isOpen);
+    });
+
     historyLinkTopEl.addEventListener("click", () => {
       historyCardEl.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -1048,6 +1160,7 @@
 
     renderServerStatus();
     setAdvancedOpen(false);
+    setFieldsHelpOpen(false);
 
     if (tg) {
       tg.ready();
