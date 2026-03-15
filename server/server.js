@@ -4,7 +4,7 @@ const crypto = require("crypto");
 const { getPool, testDbConnection } = require("./db");
 
 const app = express();
-const FORMULA_VERSION = "v1.1";
+const FORMULA_VERSION = "v1.2";
 
 app.use(cors({
   origin: "https://race-nutrition-miniapp.pages.dev"
@@ -102,80 +102,271 @@ function isInRange(value, min, max) {
   return Number.isFinite(value) && value >= min && value <= max;
 }
 
-function calculateFluidPerHourMl(normalizedInput) {
-  const sweatRateLph = normalizedInput.sweat_rate_lph;
-  const temperatureC = normalizedInput.temperature_c;
-  const humidityPct = normalizedInput.humidity_pct;
-
-  if (Number.isFinite(sweatRateLph)) {
-    return sweatRateLph * 1000 * 0.7;
-  }
-
-  let baseFluidMlPerHour;
-
-  if (temperatureC < 10) {
-    baseFluidMlPerHour = 400;
-  } else if (temperatureC <= 19) {
-    baseFluidMlPerHour = 500;
-  } else if (temperatureC <= 29) {
-    baseFluidMlPerHour = 650;
-  } else {
-    baseFluidMlPerHour = 800;
-  }
-
-  if (!Number.isFinite(humidityPct)) {
-    return baseFluidMlPerHour;
-  }
-
-  let humidityModifier = 1;
-
-  if (humidityPct >= 80) {
-    humidityModifier = 1.1;
-  } else if (humidityPct >= 60) {
-    humidityModifier = 1.05;
-  } else if (humidityPct <= 30) {
-    humidityModifier = 0.95;
-  }
-
-  return Math.round(baseFluidMlPerHour * humidityModifier);
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
 }
 
-function getSodiumConcentrationMgL(temperatureC, sodiumLossProfile) {
-  let baseMgL;
+function hasUsableSweatRate(normalizedInput) {
+  return Number.isFinite(normalizedInput.sweat_rate_lph);
+}
 
-  if (temperatureC >= 30) {
-    baseMgL = 900;
-  } else if (temperatureC >= 20) {
-    baseMgL = 700;
-  } else {
-    baseMgL = 500;
+function getFallbackTemperatureBand(temperatureC) {
+  if (!Number.isFinite(temperatureC)) {
+    return "moderate";
   }
 
-  let profileModifierMgL = 0;
+  if (temperatureC < 10) return "cool";
+  if (temperatureC < 20) return "moderate";
+  if (temperatureC < 25) return "warm";
+  if (temperatureC < 30) return "hot";
+  return "very_hot";
+}
 
-  if (sodiumLossProfile === "low") {
-    profileModifierMgL = -150;
-  } else if (sodiumLossProfile === "medium") {
-    profileModifierMgL = 0;
-  } else if (sodiumLossProfile === "high") {
-    profileModifierMgL = 150;
-  } else if (sodiumLossProfile === "unknown") {
-    profileModifierMgL = 0;
-  } else {
-    profileModifierMgL = 0;
+function getFallbackDurationBand(durationMin) {
+  if (durationMin < 60) return "short";
+  if (durationMin < 240) return "medium";
+  return "long";
+}
+
+function getFallbackBaseFluidLph(normalizedInput) {
+  const matrix = {
+    cool: { short: 0.25, medium: 0.30, long: 0.35 },
+    moderate: { short: 0.35, medium: 0.40, long: 0.45 },
+    warm: { short: 0.45, medium: 0.50, long: 0.55 },
+    hot: { short: 0.60, medium: 0.65, long: 0.70 },
+    very_hot: { short: 0.70, medium: 0.75, long: 0.80 }
+  };
+
+  const temperatureBand = getFallbackTemperatureBand(normalizedInput.temperature_c);
+  const durationBand = getFallbackDurationBand(normalizedInput.duration_min);
+
+  return {
+    temperatureBand,
+    durationBand,
+    baseFluidPerHourL: matrix[temperatureBand][durationBand]
+  };
+}
+
+function calculateKnownSweatFluidLph(normalizedInput) {
+  const sweatRateLph = normalizedInput.sweat_rate_lph;
+  const tempAdj = normalizedInput.temperature_c >= 25 ? 0.05 : 0;
+  const humidityAdj = normalizedInput.humidity_pct >= 70 ? 0.05 : 0;
+  const durationAdj = normalizedInput.duration_min >= 240 ? 0.05 : 0;
+
+  let effortAdj = 0;
+  if (normalizedInput.effort_level === "easy") effortAdj = -0.05;
+  if (normalizedInput.effort_level === "race") effortAdj = 0.05;
+
+  const adjustedFraction = 0.65 + tempAdj + humidityAdj + durationAdj + effortAdj;
+  const replacementFraction = clamp(adjustedFraction, 0.55, 0.80);
+
+  const rawFluidPerHourL = sweatRateLph * replacementFraction;
+  const belowSweatLimitL = sweatRateLph - 0.05;
+  const preCapFluidPerHourL = Math.min(rawFluidPerHourL, belowSweatLimitL);
+  const cappedFluidPerHourL = Math.min(preCapFluidPerHourL, 1.00);
+
+  let finalFluidPerHourL = cappedFluidPerHourL;
+  if (
+    cappedFluidPerHourL < 0.25 &&
+    0.25 < sweatRateLph &&
+    0.25 < belowSweatLimitL
+  ) {
+    finalFluidPerHourL = 0.25;
   }
 
-  const sodiumConcentrationMgL = baseMgL + profileModifierMgL;
+  return {
+    fluidPerHourL: finalFluidPerHourL,
+    meta: {
+      hydrationBranch: "known_sweat_rate",
+      replacementFraction,
+      rawFluidPerHourL,
+      belowSweatLimitL,
+      preCapFluidPerHourL,
+      cappedFluidPerHourL,
+      isUpperFluidScenario: finalFluidPerHourL > 0.80,
+      hardCapApplied: preCapFluidPerHourL > 1.00,
+      possibleOverdrinkingRisk:
+        finalFluidPerHourL > 0.80 || preCapFluidPerHourL > 1.00,
+      heatWithoutSweatRate: false,
+      ultraLongHotScenario: false
+    }
+  };
+}
 
-  if (sodiumConcentrationMgL < 300) {
-    return 300;
+function calculateFallbackFluidLph(normalizedInput) {
+  const { temperatureBand, durationBand, baseFluidPerHourL } =
+    getFallbackBaseFluidLph(normalizedInput);
+
+  const humidityAdj = normalizedInput.humidity_pct >= 70 ? 0.05 : 0;
+  const raceTypeAdj = normalizedInput.race_type === "ultra" ? 0.05 : 0;
+
+  let effortLevel = normalizedInput.effort_level;
+  if (effortLevel === null) {
+    effortLevel = "race";
   }
 
-  if (sodiumConcentrationMgL > 1100) {
-    return 1100;
+  let effortAdj = 0;
+  if (effortLevel === "easy") effortAdj = -0.05;
+  if (effortLevel === "race") effortAdj = 0.05;
+
+  const adjustedFluidPerHourL = baseFluidPerHourL + humidityAdj + raceTypeAdj;
+  const secondaryAdjustedFluidPerHourL = adjustedFluidPerHourL + effortAdj;
+  const fluidPerHourL = clamp(secondaryAdjustedFluidPerHourL, 0.25, 1.00);
+
+  const isUpperFluidScenario = fluidPerHourL > 0.80;
+  const hardCapApplied = secondaryAdjustedFluidPerHourL > 1.00;
+  const heatWithoutSweatRate = normalizedInput.temperature_c >= 25;
+  const ultraLongHotScenario =
+    normalizedInput.race_type === "ultra" &&
+    normalizedInput.duration_min >= 240 &&
+    normalizedInput.temperature_c >= 25;
+  const possibleOverdrinkingRisk =
+    isUpperFluidScenario ||
+    hardCapApplied ||
+    (normalizedInput.temperature_c >= 25 && normalizedInput.duration_min >= 240);
+
+  return {
+    fluidPerHourL,
+    meta: {
+      hydrationBranch: "fallback",
+      temperatureBand,
+      durationBand,
+      baseFluidPerHourL,
+      adjustedFluidPerHourL,
+      secondaryAdjustedFluidPerHourL,
+      isUpperFluidScenario,
+      hardCapApplied,
+      possibleOverdrinkingRisk,
+      heatWithoutSweatRate,
+      ultraLongHotScenario
+    }
+  };
+}
+
+function calculateFluidPerHourMl(normalizedInput) {
+  if (hasUsableSweatRate(normalizedInput)) {
+    const result = calculateKnownSweatFluidLph(normalizedInput);
+    return {
+      fluidPerHourMl: Math.round(result.fluidPerHourL * 1000),
+      meta: result.meta
+    };
   }
 
-  return sodiumConcentrationMgL;
+  const result = calculateFallbackFluidLph(normalizedInput);
+  return {
+    fluidPerHourMl: Math.round(result.fluidPerHourL * 1000),
+    meta: result.meta
+  };
+}
+
+function normalizeSodiumLossProfile(sodiumLossProfile) {
+  if (
+    sodiumLossProfile === null ||
+    sodiumLossProfile === undefined ||
+    sodiumLossProfile === ""
+  ) {
+    return "unknown";
+  }
+
+  return sodiumLossProfile;
+}
+
+function isSodiumStrategyActive({
+  durationMin,
+  temperatureC,
+  humidityPct,
+  fluidPerHourL,
+  raceType,
+  sodiumLossProfile
+}) {
+  return (
+    durationMin >= 90 ||
+    temperatureC >= 20 ||
+    humidityPct >= 70 ||
+    fluidPerHourL >= 0.50 ||
+    raceType === "ultra" ||
+    sodiumLossProfile === "high"
+  );
+}
+
+function getBaseSodiumConcentrationMgL(sodiumLossProfile) {
+  if (sodiumLossProfile === "low") return 400;
+  if (sodiumLossProfile === "medium") return 600;
+  if (sodiumLossProfile === "high") return 900;
+  return 500;
+}
+
+function calculateSodiumPlan(normalizedInput, hydrationPlan) {
+  const sodiumLossProfile = normalizeSodiumLossProfile(
+    normalizedInput.sodium_loss_profile
+  );
+  const fluidPerHourL = hydrationPlan.fluidPerHourMl / 1000;
+  const sodiumStrategyActive = isSodiumStrategyActive({
+    durationMin: normalizedInput.duration_min,
+    temperatureC: normalizedInput.temperature_c,
+    humidityPct: normalizedInput.humidity_pct,
+    fluidPerHourL,
+    raceType: normalizedInput.race_type,
+    sodiumLossProfile
+  });
+
+  if (!sodiumStrategyActive) {
+    return {
+      sodiumLossProfile,
+      sodiumStrategyActive,
+      sodiumConcentrationMgL: 0,
+      sodiumPerHourMg: 0,
+      sodiumTotalMg: 0,
+      sodiumIntervalMin: hydrationPlan.fluidIntervalMin,
+      sodiumPerIntakeMg: 0
+    };
+  }
+
+  let sodiumConcentrationMgL = getBaseSodiumConcentrationMgL(sodiumLossProfile);
+
+  if (
+    normalizedInput.duration_min >= 180 ||
+    normalizedInput.temperature_c >= 25 ||
+    normalizedInput.humidity_pct >= 70 ||
+    fluidPerHourL >= 0.70 ||
+    normalizedInput.race_type === "ultra"
+  ) {
+    sodiumConcentrationMgL += 200;
+  }
+
+  if (
+    sodiumLossProfile === "high" &&
+    (normalizedInput.temperature_c >= 25 || fluidPerHourL >= 0.90)
+  ) {
+    sodiumConcentrationMgL = 1200;
+  }
+
+  if (sodiumLossProfile === "unknown") {
+    sodiumConcentrationMgL = Math.min(sodiumConcentrationMgL, 700);
+  }
+
+  sodiumConcentrationMgL = clamp(sodiumConcentrationMgL, 0, 1200);
+
+  const sodiumPerHourMg = Math.round(
+    clamp(fluidPerHourL * sodiumConcentrationMgL, 0, 1500)
+  );
+  const sodiumTotalMg = Math.round(
+    sodiumPerHourMg * (normalizedInput.duration_min / 60)
+  );
+  const sodiumIntervalMin = hydrationPlan.fluidIntervalMin;
+  const sodiumPerIntakeMg = Math.round(
+    (sodiumPerHourMg * sodiumIntervalMin) / 60
+  );
+
+  return {
+    sodiumLossProfile,
+    sodiumStrategyActive,
+    sodiumConcentrationMgL,
+    sodiumPerHourMg,
+    sodiumTotalMg,
+    sodiumIntervalMin,
+    sodiumPerIntakeMg
+  };
 }
 
 function roundTo5(value) {
@@ -483,6 +674,7 @@ app.post("/api/calc", async (req, res) => {
 
   if (
     normalizedInput.sodium_loss_profile !== null &&
+    normalizedInput.sodium_loss_profile !== "" &&
     !["low", "medium", "high", "unknown"].includes(normalizedInput.sodium_loss_profile)
   ) {
     errors.push("Выбери корректный профиль потерь натрия: низкие, средние, высокие или не знаю.");
@@ -707,36 +899,84 @@ app.post("/api/calc", async (req, res) => {
     warnings.push("Только напитком такой объём углеводов набрать может быть неудобно.");
   }
 
-  if (
-    normalizedInput.sweat_rate_lph === null &&
-    normalizedInput.temperature_c >= 20
-  ) {
-    warnings.push("В жару без данных о вашей потливости точность расчёта жидкости ниже.");
-  }
-
   if (durationMin > 720) {
     warnings.push("Очень длинная гонка: расчёт носит ориентировочный характер и требует проверки на практике.");
   }
 
-  if (normalizedInput.sodium_loss_profile === "unknown") {
+  if (false && normalizedInput.sodium_loss_profile === "unknown") {
     warnings.push("Профиль потерь натрия не указан точно: план по натрию лучше проверить на тренировке.");
   }
 
   warnings.push("Натрий — это ориентир, а не защита от перепивания.");
 
-  const fluidPerHourMl = calculateFluidPerHourMl(normalizedInput);
+  warnings.pop();
+
+  const hydrationResult = calculateFluidPerHourMl(normalizedInput);
+  const fluidPerHourMl = hydrationResult.fluidPerHourMl;
+  const hydrationMeta = hydrationResult.meta;
   const fluidTotalMl = fluidPerHourMl * durationHours;
   const fluidIntervalMin = 15;
   const fluidPerIntakeMl = fluidPerHourMl / 4;
 
-  const sodiumConcentrationMgL = getSodiumConcentrationMgL(
-    normalizedInput.temperature_c,
-    normalizedInput.sodium_loss_profile
-  );
-  const sodiumPerHourMg = (fluidPerHourMl / 1000) * sodiumConcentrationMgL;
-  const sodiumTotalMg = sodiumPerHourMg * durationHours;
-  const sodiumIntervalMin = 15;
-  const sodiumPerIntakeMg = sodiumPerHourMg / 4;
+  if (hydrationMeta.heatWithoutSweatRate) {
+    warnings.push("В жару без данных о вашей потливости hydration-план остаётся более приблизительным.");
+  }
+
+  if (hydrationMeta.isUpperFluidScenario) {
+    warnings.push("Высокий target по жидкости в час требует особой осторожности и проверки на практике.");
+  }
+
+  if (hydrationMeta.ultraLongHotScenario) {
+    warnings.push("Длинный ultra-сценарий в жару требует особенно консервативной hydration-тактики.");
+  }
+
+  if (hydrationMeta.possibleOverdrinkingRisk) {
+    warnings.push("В этом сценарии важно избегать overdrinking: не пытайся компенсировать всё количество потерь жидкости.");
+  }
+
+  const sodiumPlan = calculateSodiumPlan(normalizedInput, {
+    fluidPerHourMl,
+    fluidIntervalMin
+  });
+  const sodiumPerHourMg = sodiumPlan.sodiumPerHourMg;
+  const sodiumTotalMg = sodiumPlan.sodiumTotalMg;
+  const sodiumIntervalMin = sodiumPlan.sodiumIntervalMin;
+  const sodiumPerIntakeMg = sodiumPlan.sodiumPerIntakeMg;
+
+  if (sodiumPlan.sodiumLossProfile === "unknown") {
+    warnings.push("Sodium loss profile is unknown, so the sodium plan is less personalized and should be tested in training.");
+  }
+
+  if (false && sodiumPlan.sodiumLossProfile === "unknown") {
+    warnings.push("РџСЂРѕС„РёР»СЊ РїРѕС‚РµСЂСЊ РЅР°С‚СЂРёСЏ РЅРµРёР·РІРµСЃС‚РµРЅ, РїРѕСЌС‚РѕРјСѓ РїР»Р°РЅ РїРѕ РЅР°С‚СЂРёСЋ РјРµРЅРµРµ РїРµСЂСЃРѕРЅР°Р»РёР·РёСЂРѕРІР°РЅ Рё РµРіРѕ Р»СѓС‡С€Рµ РїСЂРѕРІРµСЂРёС‚СЊ РЅР° С‚СЂРµРЅРёСЂРѕРІРєРµ.");
+  }
+
+  if (false && (
+    normalizedInput.duration_min >= 240 &&
+    normalizedInput.temperature_c >= 25
+  )) {
+    warnings.push("Р’ РґР»РёРЅРЅРѕР№ Р¶Р°СЂРєРѕР№ РіРѕРЅРєРµ СЂР°СЃС‡С‘С‚ РїРѕ РЅР°С‚СЂРёСЋ РѕСЃРѕР±РµРЅРЅРѕ Р·Р°РІРёСЃРёС‚ РѕС‚ РІР°С€РµР№ СЂРµР°Р»СЊРЅРѕР№ РїРµСЂРµРЅРѕСЃРёРјРѕСЃС‚Рё, РїРёС‚СЊРµРІРѕРіРѕ РїР»Р°РЅР° Рё РёРЅРґРёРІРёРґСѓР°Р»СЊРЅС‹С… РїРѕС‚РµСЂСЊ.");
+  }
+
+  if (
+    normalizedInput.duration_min >= 240 &&
+    normalizedInput.temperature_c >= 25
+  ) {
+    warnings.push("Long hot scenario: sodium guidance depends heavily on real-world tolerance, drinking pattern, and individual sodium losses.");
+  }
+
+  if (sodiumPerHourMg >= 1000) {
+    warnings.push("Aggressive sodium target: without confirmed individual need, do not treat this as a universal recommendation.");
+  }
+
+  if (false && sodiumPerHourMg >= 1000) {
+    warnings.push("Р­С‚Рѕ СѓР¶Рµ РІС‹СЃРѕРєРёР№ РїР»Р°РЅ РїРѕ РЅР°С‚СЂРёСЋ. Р‘РµР· РїРѕРґС‚РІРµСЂР¶РґС‘РЅРЅРѕР№ РёРЅРґРёРІРёРґСѓР°Р»СЊРЅРѕР№ РїРѕС‚СЂРµР±РЅРѕСЃС‚Рё РЅРµ СЃС‚РѕРёС‚ РІРѕСЃРїСЂРёРЅРёРјР°С‚СЊ РµРіРѕ РєР°Рє СѓРЅРёРІРµСЂСЃР°Р»СЊРЅСѓСЋ РЅРѕСЂРјСѓ.");
+  }
+
+  warnings.push("РќР°С‚СЂРёР№ вЂ” СЌС‚Рѕ РѕСЂРёРµРЅС‚РёСЂ, Р° РЅРµ Р·Р°С‰РёС‚Р° РѕС‚ overdrinking / EAH.");
+
+  warnings.pop();
+  warnings.push("Sodium is guidance only, not protection against overdrinking or EAH.");
 
   const durationHuman = formatDurationHuman(durationMin);
 
