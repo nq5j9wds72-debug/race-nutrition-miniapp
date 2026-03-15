@@ -535,31 +535,78 @@ app.post("/api/calc", async (req, res) => {
   const durationHours = durationMin / 60;
 
   let carbsPerHour = 0;
+  let drinkOnlyCapApplied = false;
 
   if (durationMin < 60) {
-    if (normalizedInput.gi_tolerance_level === "low") carbsPerHour = 0;
-    if (normalizedInput.gi_tolerance_level === "medium") carbsPerHour = 15;
-    if (normalizedInput.gi_tolerance_level === "high") carbsPerHour = 30;
-  } else if (durationMin <= 150) {
-    if (normalizedInput.gi_tolerance_level === "low") carbsPerHour = 30;
-    if (normalizedInput.gi_tolerance_level === "medium") carbsPerHour = 45;
-    if (normalizedInput.gi_tolerance_level === "high") carbsPerHour = 60;
+    if (normalizedInput.effort_level === "race") carbsPerHour = 30;
+    if (normalizedInput.effort_level === "steady") carbsPerHour = 15;
+    if (normalizedInput.effort_level === "easy") carbsPerHour = 0;
+
+    if (
+      normalizedInput.gi_tolerance_level === "low" &&
+      carbsPerHour > 15
+    ) {
+      carbsPerHour = 15;
+    }
   } else {
-    if (normalizedInput.gi_tolerance_level === "low") carbsPerHour = 60;
-    if (normalizedInput.gi_tolerance_level === "medium") carbsPerHour = 75;
-    if (normalizedInput.gi_tolerance_level === "high") carbsPerHour = 90;
-  }
+    const durationBand = durationMin <= 150 ? "medium" : "long";
+    let zoneIndex = 1;
 
-  if (normalizedInput.effort_level === "easy") {
-    carbsPerHour -= 15;
-  }
+    if (normalizedInput.effort_level === "easy") zoneIndex -= 1;
+    if (normalizedInput.effort_level === "race") zoneIndex += 1;
 
-  if (normalizedInput.effort_level === "race") {
-    carbsPerHour += 15;
-  }
+    if (
+      durationBand === "long" &&
+      normalizedInput.race_type === "ultra"
+    ) {
+      zoneIndex -= 1;
+    }
 
-  const elevationCarbModifier = getElevationCarbModifier(normalizedInput);
-  carbsPerHour += elevationCarbModifier;
+    if (
+      ["trail", "ultra"].includes(normalizedInput.race_type) &&
+      Number.isFinite(normalizedInput.elevation_gain_m) &&
+      normalizedInput.elevation_gain_m >= 1500
+    ) {
+      zoneIndex += 1;
+    }
+
+    if (normalizedInput.gi_tolerance_level === "low") {
+      zoneIndex -= 1;
+    }
+
+    if (zoneIndex < 0) zoneIndex = 0;
+    if (zoneIndex > 2) zoneIndex = 2;
+
+    const zoneTargets =
+      durationBand === "medium" ? [30, 45, 60] : [60, 75, 90];
+    const baseTarget = zoneTargets[zoneIndex];
+
+    let giCeiling = 90;
+    if (durationBand === "medium") {
+      if (normalizedInput.gi_tolerance_level === "low") giCeiling = 45;
+      if (normalizedInput.gi_tolerance_level === "medium") giCeiling = 60;
+      if (normalizedInput.gi_tolerance_level === "high") giCeiling = 60;
+    } else {
+      if (normalizedInput.gi_tolerance_level === "low") giCeiling = 60;
+      if (normalizedInput.gi_tolerance_level === "medium") giCeiling = 75;
+      if (normalizedInput.gi_tolerance_level === "high") giCeiling = 90;
+    }
+
+    carbsPerHour = Math.min(baseTarget, giCeiling);
+
+    let fuelFormatCap = 90;
+    if (normalizedInput.fuel_format === "gels") fuelFormatCap = 75;
+    if (normalizedInput.fuel_format === "drink_only") fuelFormatCap = 60;
+
+    if (
+      normalizedInput.fuel_format === "drink_only" &&
+      carbsPerHour > fuelFormatCap
+    ) {
+      drinkOnlyCapApplied = true;
+    }
+
+    carbsPerHour = Math.min(carbsPerHour, fuelFormatCap);
+  }
 
   if (carbsPerHour < 0) {
     carbsPerHour = 0;
@@ -570,11 +617,56 @@ app.post("/api/calc", async (req, res) => {
   }
 
   let carbIntervalMin = 30;
-  if (carbsPerHour > 45 && carbsPerHour <= 75) carbIntervalMin = 20;
-  if (carbsPerHour > 75) carbIntervalMin = 15;
+  let carbsPerIntake = 0;
 
-  const carbIntakesPerHour = 60 / carbIntervalMin;
-  const carbsPerIntake = carbsPerHour / carbIntakesPerHour;
+  if (carbsPerHour > 0) {
+    let targetDosePerIntake = 22.5;
+    let maxDosePerIntake = 25;
+    let preferredIntervals = [20, 30, 15];
+
+    if (normalizedInput.gi_tolerance_level === "low") {
+      targetDosePerIntake = 17.5;
+      maxDosePerIntake = 20;
+      preferredIntervals = [20, 15, 30];
+    }
+
+    if (normalizedInput.gi_tolerance_level === "medium") {
+      targetDosePerIntake = 22.5;
+      maxDosePerIntake = 25;
+      preferredIntervals = [20, 30, 15];
+    }
+
+    if (normalizedInput.gi_tolerance_level === "high") {
+      targetDosePerIntake = 27.5;
+      maxDosePerIntake = 30;
+      preferredIntervals = [20, 15, 30];
+    }
+
+    let bestIntervalMin = preferredIntervals[0];
+    let bestDistance = Infinity;
+
+    for (const intervalMin of preferredIntervals) {
+      const intakeCountPerHour = 60 / intervalMin;
+      const dosePerIntake = carbsPerHour / intakeCountPerHour;
+
+      if (dosePerIntake > maxDosePerIntake) {
+        continue;
+      }
+
+      const distanceToTargetDose = Math.abs(
+        dosePerIntake - targetDosePerIntake
+      );
+
+      if (distanceToTargetDose < bestDistance) {
+        bestDistance = distanceToTargetDose;
+        bestIntervalMin = intervalMin;
+      }
+    }
+
+    carbIntervalMin = bestIntervalMin;
+    carbsPerIntake = carbsPerHour / (60 / carbIntervalMin);
+  }
+
   const carbsTotal = carbsPerHour * durationHours;
 
   const gelBasisG = 25;
@@ -608,7 +700,10 @@ app.post("/api/calc", async (req, res) => {
     warnings.push("Высокий план по углеводам лучше заранее протестировать на тренировке.");
   }
 
-  if (normalizedInput.fuel_format === "drink_only" && carbsPerHour > 60) {
+  if (
+    normalizedInput.fuel_format === "drink_only" &&
+    (drinkOnlyCapApplied || carbsPerHour >= 60)
+  ) {
     warnings.push("Только напитком такой объём углеводов набрать может быть неудобно.");
   }
 

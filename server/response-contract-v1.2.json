@@ -1,0 +1,93 @@
+{
+  "version": "v1.2",
+  "endpoint": "/api/calc",
+  "top_level": {
+    "ok": "boolean",
+    "formula_version": "string|null",
+    "errors": "string[]",
+    "warnings": "string[]",
+    "normalized_input": "object|null",
+    "result": "object|null",
+    "plan": "object|null"
+  },
+  "normalized_input_shape": {
+    "race_type": "string",
+    "duration_min": "number",
+    "weight_kg": "number",
+    "temperature_c": "number",
+    "fuel_format": "string",
+    "gi_tolerance_level": "string",
+    "effort_level": "string|null",
+    "humidity_pct": "number|null",
+    "distance_km": "number|null",
+    "sweat_rate_lph": "number|null",
+    "elevation_gain_m": "number|null",
+    "sodium_loss_profile": "string|null"
+  },
+  "result_shape": {
+    "carbs": {
+      "carbs_per_hour_g": "number",
+      "carbs_total_g": "number",
+      "carb_interval_min": "number",
+      "carbs_per_intake_g": "number"
+    },
+    "fluid": {
+      "fluid_per_hour_ml": "number",
+      "fluid_total_ml": "number",
+      "fluid_interval_min": "number",
+      "fluid_per_intake_ml": "number"
+    },
+    "sodium": {
+      "sodium_per_hour_mg": "number",
+      "sodium_total_mg": "number",
+      "sodium_interval_min": "number",
+      "sodium_per_intake_mg": "number"
+    }
+  },
+  "plan_shape": {
+    "intake_interval_min": "number|null",
+    "total_intake_count": "number|null",
+    "when_to_start": "string|null",
+    "missed_intake_fallback": "string|null",
+    "recommendation_summary": "string|null",
+    "plan_steps": "string[]"
+  },
+  "response_rules": {
+    "success_response": {
+      "ok": true,
+      "formula_version": "required string",
+      "errors": "[]",
+      "warnings": "string[]",
+      "normalized_input": "required object",
+      "result": "required object",
+      "plan": "required object"
+    },
+    "error_response": {
+      "ok": false,
+      "formula_version": "optional string|null",
+      "errors": "non-empty string[]",
+      "warnings": "string[]",
+      "normalized_input": "null",
+      "result": "null",
+      "plan": "null"
+    }
+  },
+  "compatibility_notes": {
+    "plan_summary_alias_allowed_during_migration": true,
+    "summary_alias_rule": "summary = recommendation_summary",
+    "current_v1_1_backend_may_still_return_summary": true,
+    "current_v1_1_backend_may_still_return_result_gel_equivalent": true
+  },
+  "not_in_minimum_contract": [
+    "result.gel_equivalent",
+    "plan.confidence_level",
+    "plan.rule_ids_applied",
+    "plan.detailed_warning_objects",
+    "plan.hydration_branch_marker",
+    "plan.schedule_type",
+    "plan.plan_complexity",
+    "plan.object_based_steps",
+    "plan.aid_station_logistics",
+    "duplicated_dose_fields_inside_plan"
+  ]
+}

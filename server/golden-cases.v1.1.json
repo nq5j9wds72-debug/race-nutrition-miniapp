@@ -1,0 +1,208 @@
+{
+  "version": "v1.1",
+  "purpose": "Golden regression pack for current production formula behavior.",
+  "cases": [
+    {
+      "case_id": "CASE_001",
+      "title": "short road cool basic",
+      "category": "short_road_cool",
+      "input": {
+        "race_type": "road",
+        "duration_min": 60,
+        "weight_kg": 70,
+        "temperature_c": 10,
+        "fuel_format": "gels",
+        "gi_tolerance_level": "medium",
+        "effort_level": "steady",
+        "humidity_pct": 50,
+        "distance_km": 10,
+        "sweat_rate_lph": null,
+        "elevation_gain_m": 0,
+        "sodium_loss_profile": "unknown"
+      },
+      "expected_v1_1": {
+        "carbs_per_hour_g": 45,
+        "carbs_total_g": 45,
+        "carb_interval_min": 30,
+        "carbs_per_intake_g": 22.5,
+        "gels_per_hour_est": 1.8,
+        "gels_total_est": 1.8,
+        "fluid_per_hour_ml": 500,
+        "fluid_total_ml": 500,
+        "fluid_interval_min": 15,
+        "fluid_per_intake_ml": 125,
+        "sodium_per_hour_mg": 250,
+        "sodium_total_mg": 250,
+        "sodium_interval_min": 15,
+        "sodium_per_intake_mg": 62.5
+      },
+      "expected_warnings_v1_1": [
+        "Профиль потерь натрия не указан точно: план по натрию лучше проверить на тренировке.",
+        "Натрий — это ориентир, а не защита от перепивания."
+      ],
+      "notes": "Baseline short road case. Covers cool weather, unknown sweat rate, unknown sodium profile."
+    },
+    {
+      "case_id": "CASE_002",
+      "title": "half marathon moderate low GI",
+      "category": "half_moderate_low_gi",
+      "input": {
+        "race_type": "road",
+        "duration_min": 110,
+        "weight_kg": 68,
+        "temperature_c": 16,
+        "fuel_format": "gels",
+        "gi_tolerance_level": "low",
+        "effort_level": "race",
+        "humidity_pct": 55,
+        "distance_km": 21.1,
+        "sweat_rate_lph": null,
+        "elevation_gain_m": 50,
+        "sodium_loss_profile": "medium"
+      },
+      "expected_v1_1": {
+        "carbs_per_hour_g": 45,
+        "carbs_total_g": 82.5,
+        "carb_interval_min": 30,
+        "carbs_per_intake_g": 22.5,
+        "gels_per_hour_est": 1.8,
+        "gels_total_est": 3.3,
+        "fluid_per_hour_ml": 500,
+        "fluid_total_ml": 916.6666666666666,
+        "fluid_interval_min": 15,
+        "fluid_per_intake_ml": 125,
+        "sodium_per_hour_mg": 250,
+        "sodium_total_mg": 458.3333333333333,
+        "sodium_interval_min": 15,
+        "sodium_per_intake_mg": 62.5
+      },
+      "expected_warnings_v1_1": [
+        "Натрий — это ориентир, а не защита от перепивания."
+      ],
+      "notes": "Important GI sensitivity case. In current v1.1 GI strongly affects carbs target."
+    },
+    {
+      "case_id": "CASE_003",
+      "title": "hot road marathon drink only",
+      "category": "hot_road_drink_only",
+      "input": {
+        "race_type": "road",
+        "duration_min": 240,
+        "weight_kg": 75,
+        "temperature_c": 28,
+        "fuel_format": "drink_only",
+        "gi_tolerance_level": "high",
+        "effort_level": "race",
+        "humidity_pct": 70,
+        "distance_km": 42.2,
+        "sweat_rate_lph": null,
+        "elevation_gain_m": 120,
+        "sodium_loss_profile": "medium"
+      },
+      "expected_v1_1": {
+        "carbs_per_hour_g": 90,
+        "carbs_total_g": 360,
+        "carb_interval_min": 15,
+        "carbs_per_intake_g": 22.5,
+        "gels_per_hour_est": 3.6,
+        "gels_total_est": 14.4,
+        "fluid_per_hour_ml": 682,
+        "fluid_total_ml": 2728,
+        "fluid_interval_min": 15,
+        "fluid_per_intake_ml": 170.5,
+        "sodium_per_hour_mg": 477.40000000000003,
+        "sodium_total_mg": 1909.6000000000001,
+        "sodium_interval_min": 15,
+        "sodium_per_intake_mg": 119.35000000000001
+      },
+      "expected_warnings_v1_1": [
+        "Высокий план по углеводам лучше заранее протестировать на тренировке.",
+        "Только напитком такой объём углеводов набрать может быть неудобно.",
+        "В жару без данных о вашей потливости точность расчёта жидкости ниже.",
+        "Натрий — это ориентир, а не защита от перепивания."
+      ],
+      "notes": "Critical warning-heavy scenario. Current v1.1 has drink_only warning if carb target becomes high enough."
+    },
+    {
+      "case_id": "CASE_004",
+      "title": "trail long race with elevation",
+      "category": "trail_elevation_long",
+      "input": {
+        "race_type": "trail",
+        "duration_min": 360,
+        "weight_kg": 72,
+        "temperature_c": 18,
+        "fuel_format": "combo",
+        "gi_tolerance_level": "medium",
+        "effort_level": "steady",
+        "humidity_pct": 60,
+        "distance_km": 45,
+        "sweat_rate_lph": null,
+        "elevation_gain_m": 1800,
+        "sodium_loss_profile": "high"
+      },
+      "expected_v1_1": {
+        "carbs_per_hour_g": 85,
+        "carbs_total_g": 510,
+        "carb_interval_min": 15,
+        "carbs_per_intake_g": 21.25,
+        "gels_per_hour_est": 3.4,
+        "gels_total_est": 20.4,
+        "fluid_per_hour_ml": 525,
+        "fluid_total_ml": 3150,
+        "fluid_interval_min": 15,
+        "fluid_per_intake_ml": 131.25,
+        "sodium_per_hour_mg": 341.25,
+        "sodium_total_mg": 2047.5,
+        "sodium_interval_min": 15,
+        "sodium_per_intake_mg": 85.3125
+      },
+      "expected_warnings_v1_1": [
+        "Высокий план по углеводам лучше заранее протестировать на тренировке.",
+        "Натрий — это ориентир, а не защита от перепивания."
+      ],
+      "notes": "Important for trail modifier coverage. In current v1.1 elevation changes carbs only slightly for trail/ultra."
+    },
+    {
+      "case_id": "CASE_005",
+      "title": "ultra hot humid with known sweat rate",
+      "category": "ultra_hot_humid_known_sweat",
+      "input": {
+        "race_type": "ultra",
+        "duration_min": 720,
+        "weight_kg": 78,
+        "temperature_c": 30,
+        "fuel_format": "combo",
+        "gi_tolerance_level": "medium",
+        "effort_level": "steady",
+        "humidity_pct": 80,
+        "distance_km": 80,
+        "sweat_rate_lph": 1.2,
+        "elevation_gain_m": 2500,
+        "sodium_loss_profile": "unknown"
+      },
+      "expected_v1_1": {
+        "carbs_per_hour_g": 85,
+        "carbs_total_g": 1020,
+        "carb_interval_min": 15,
+        "carbs_per_intake_g": 21.25,
+        "gels_per_hour_est": 3.4,
+        "gels_total_est": 40.8,
+        "fluid_per_hour_ml": 840,
+        "fluid_total_ml": 10080,
+        "fluid_interval_min": 15,
+        "fluid_per_intake_ml": 210,
+        "sodium_per_hour_mg": 756,
+        "sodium_total_mg": 9072,
+        "sodium_interval_min": 15,
+        "sodium_per_intake_mg": 189
+      },
+      "expected_warnings_v1_1": [
+        "Высокий план по углеводам лучше заранее протестировать на тренировке.",
+        "Профиль потерь натрия не указан точно: план по натрию лучше проверить на тренировке.",
+        "Натрий — это ориентир, а не защита от перепивания."
+      ],
+      "notes": "Covers the known sweat-rate branch, ultra duration and honest handling gap for unknown sodium profile."
+    }
+  ]
+}

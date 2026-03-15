@@ -1,0 +1,163 @@
+{
+  "version": "v1.2-target",
+  "purpose": "Target behavior pack for future science-upgraded formula.",
+  "cases": [
+    {
+      "case_id": "CASE_001",
+      "title": "short road cool basic",
+      "category": "short_road_cool",
+      "input": {
+        "race_type": "road",
+        "duration_min": 60,
+        "weight_kg": 70,
+        "temperature_c": 10,
+        "fuel_format": "gels",
+        "gi_tolerance_level": "medium",
+        "effort_level": "steady",
+        "humidity_pct": 50,
+        "distance_km": 10,
+        "sweat_rate_lph": null,
+        "elevation_gain_m": 0,
+        "sodium_loss_profile": "unknown"
+      },
+      "expected_direction_v1_2": {
+        "carbs": "same_or_minor_change",
+        "fluid": "same_or_minor_change",
+        "sodium": "more_honest_unknown_handling",
+        "warnings": "same_or_slightly_more_honest"
+      },
+      "target_expectations": [
+        "short cool scenario should stay conservative and simple",
+        "unknown sodium profile should reduce certainty instead of looking fully personalized",
+        "result should stay easy to execute in practice"
+      ],
+      "notes": "Baseline reference case for conservative behavior."
+    },
+    {
+      "case_id": "CASE_002",
+      "title": "half marathon moderate low GI",
+      "category": "half_moderate_low_gi",
+      "input": {
+        "race_type": "road",
+        "duration_min": 110,
+        "weight_kg": 68,
+        "temperature_c": 16,
+        "fuel_format": "gels",
+        "gi_tolerance_level": "low",
+        "effort_level": "race",
+        "humidity_pct": 55,
+        "distance_km": 21.1,
+        "sweat_rate_lph": null,
+        "elevation_gain_m": 50,
+        "sodium_loss_profile": "medium"
+      },
+      "expected_direction_v1_2": {
+        "carbs": "may_be_more_explicitly_gi_limited",
+        "fluid": "same_or_minor_change",
+        "sodium": "same_or_minor_change",
+        "warnings": "may_increase"
+      },
+      "target_expectations": [
+        "low GI tolerance should clearly limit practical carb ambition",
+        "result should explain feasibility, not only output a number",
+        "if confidence is limited, this should be visible in the output language"
+      ],
+      "notes": "Key GI honesty case."
+    },
+    {
+      "case_id": "CASE_003",
+      "title": "hot road marathon drink only",
+      "category": "hot_road_drink_only",
+      "input": {
+        "race_type": "road",
+        "duration_min": 240,
+        "weight_kg": 75,
+        "temperature_c": 28,
+        "fuel_format": "drink_only",
+        "gi_tolerance_level": "high",
+        "effort_level": "race",
+        "humidity_pct": 70,
+        "distance_km": 42.2,
+        "sweat_rate_lph": null,
+        "elevation_gain_m": 120,
+        "sodium_loss_profile": "medium"
+      },
+      "expected_direction_v1_2": {
+        "carbs": "should_reflect_fuel_format_feasibility_more",
+        "fluid": "more_conservative_and_more_explicit",
+        "sodium": "may_be_more_conservative_and_more_contextual",
+        "warnings": "increase"
+      },
+      "target_expectations": [
+        "drink_only should not look equally feasible to gels or combo at high carb demand",
+        "hot scenario without sweat rate should show lower confidence than a known sweat-rate case",
+        "possible overdrinking risk should be easier to surface when fluid targets get high",
+        "warnings should become more explicit about practicality and uncertainty"
+      ],
+      "notes": "Key feasibility and hydration honesty case."
+    },
+    {
+      "case_id": "CASE_004",
+      "title": "trail long race with elevation",
+      "category": "trail_elevation_long",
+      "input": {
+        "race_type": "trail",
+        "duration_min": 360,
+        "weight_kg": 72,
+        "temperature_c": 18,
+        "fuel_format": "combo",
+        "gi_tolerance_level": "medium",
+        "effort_level": "steady",
+        "humidity_pct": 60,
+        "distance_km": 45,
+        "sweat_rate_lph": null,
+        "elevation_gain_m": 1800,
+        "sodium_loss_profile": "high"
+      },
+      "expected_direction_v1_2": {
+        "carbs": "should_be_more_contextual_and_practically_explainable",
+        "fluid": "same_or_minor_change",
+        "sodium": "may_be_more_contextual",
+        "warnings": "may_increase"
+      },
+      "target_expectations": [
+        "trail and elevation context should be represented more honestly than a tiny hidden modifier",
+        "long trail execution risk should be easier to understand from warnings and text",
+        "the result should stay practical for real race execution"
+      ],
+      "notes": "Key trail-context case."
+    },
+    {
+      "case_id": "CASE_005",
+      "title": "ultra hot humid with known sweat rate",
+      "category": "ultra_hot_humid_known_sweat",
+      "input": {
+        "race_type": "ultra",
+        "duration_min": 720,
+        "weight_kg": 78,
+        "temperature_c": 30,
+        "fuel_format": "combo",
+        "gi_tolerance_level": "medium",
+        "effort_level": "steady",
+        "humidity_pct": 80,
+        "distance_km": 80,
+        "sweat_rate_lph": 1.2,
+        "elevation_gain_m": 2500,
+        "sodium_loss_profile": "unknown"
+      },
+      "expected_direction_v1_2": {
+        "carbs": "same_or_minor_change",
+        "fluid": "should_prioritize_known_sweat_rate_branch",
+        "sodium": "should_handle_unknown_profile_more_honestly",
+        "warnings": "increase"
+      },
+      "target_expectations": [
+        "known sweat rate should be the main hydration input when available",
+        "ultra hot scenario should surface stronger safety language",
+        "unknown sodium profile should reduce certainty rather than imitate personalization",
+        "sodium should not be framed as protection against overdrinking-related hyponatremia"
+      ],
+      "notes": "Key hydration-branch and sodium-honesty case."
+    }
+  ]
+}
